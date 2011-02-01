@@ -36,8 +36,9 @@
 
 #include <glib.h>
 #include <glib-object.h>
-
 #include <gio/gio.h>
+
+#include "config.h"
 
 
 typedef struct _UMounterAutomounter UMounterAutomounter;
@@ -82,3 +83,4 @@ umounter_automounter_run_as_thread(UMounterAutomounter *self);
 
 
 #endif /* UMOUNTER_AUTOMOUNTER_H */
+
