@@ -1,0 +1,109 @@
+UMounter 0.1
+Copyright (c) Christian Krippendorf
+
+EMail: Kontakt-Programming@CerebrosuS.de
+
+--------------------------------------------------------------------------------
+-- Contents
+
+1. Licence          [Under which licence is this program published?]
+2. Description      [What is umounter good for?]
+3. Requirements     [What do you need for installing and using umounter?]
+4. Installation     [How to install umounter?]
+5. Use              [How to use umounter?]
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+1. Licence
+
+UMounter is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+UMounter is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+You can also find a copy of the licence in the LICENCE file coming with 
+UMounter.
+
+--------------------------------------------------------------------------------
+
+2. Description
+
+UMounter is just for mounting all your removeable volumes, that will be plugged
+in to your computer. For example: If u stick in an usb mass storage which
+includes a valid filesystem, this filesystem will be mounted on linux to /media.
+
+U have to unmount it by yourself, cause for this time UMounter only mount this
+devices, but if you plugg out your mass storage device data could be lost.
+
+For later releases it is planned to take in a config file in /etc, which could
+run several commands when a new volume is mounted. But for this time, u have to
+life without this feature if u want to use UMounter.
+
+UMounter uses the UDisks over glib and gio to mount the volumes. I was created
+mainly for slim desktops like openbox. This slim desktops don't have any
+automounter for mass storage devices so an implemention could be usefull.
+There are also other programs out there which solves this issue, but nothing
+connecting over gio to UDisks, as far as i had seen.
+
+--------------------------------------------------------------------------------
+
+3. Requirements
+
+If you COMPILE UMounter, cause u don't get a package for your distribution or
+for any other reason, you need the following programs:
+
+    - cmake > 2.8
+    - gcc
+    - make
+    - glib headers
+
+And for INSTALLING you need the following libs:
+
+    - glib > 2.26
+    - libdbus
+
+For USING UMounter the following requirements exist:
+
+    - a running dbus daemon for connection to udisks
+
+All other requirements should be installed on every distribution you get. If not
+please tell me, so i can add other requirements!!!
+
+--------------------------------------------------------------------------------
+
+4. Installation
+
+First switch to the directory and build your umounter with:
+
+    @host]$ cmake && make
+
+now u can isntall it with a simple:
+
+    @host]$ make install
+
+If u want to decide to which prefix UMounter should be installed, try this:
+
+    @host]$ cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr && make
+
+Now u can use your umounter.
+
+--------------------------------------------------------------------------------
+
+5. Use
+
+Just start your damon as user with 
+    
+    umounter &
+
+In later release u will have the option to set it as system wide daemon. But for
+this time... this must be ok.
+
