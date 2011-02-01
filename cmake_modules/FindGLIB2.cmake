@@ -19,7 +19,8 @@ FIND_PATH(GLIB2_INCLUDE_DIR
 FIND_PATH(GLIB2CONFIG_INCLUDE_DIR
     NAMES 
         glibconfig.h
-    PATHS 
+    PATHS
+        /usr/lib64
         /usr/lib/
         /usr/lib32
     PATH_SUFFIXES
@@ -39,6 +40,7 @@ FIND_LIBRARY(GLIB2_LIBRARY
         /usr/lib
         /usr/local/lib
         /lib64
+        /usr/lib64
         /usr/lib32
         /usr/local/lib32
 )
@@ -51,12 +53,42 @@ FIND_LIBRARY(GLIB2GIO_LIBRARY
         /lib
         /usr/lib
         /usr/local/lib
+        /usr/lib64
         /lib64
         /usr/lib32
         /usr/local/lib32
 )
 
-SET(GLIB2_LIBRARIES ${GLIB2_LIBRARY} ${GLIB2GIO_LIBRARY})
+FIND_LIBRARY(GLIB2GOBJECT_LIBRARY 
+    NAMES 
+        gobject
+        gobject-2.0
+    PATHS
+        /lib
+        /usr/lib
+        /usr/local/lib
+        /usr/lib64
+        /lib64
+        /usr/lib32
+        /usr/local/lib32
+)
+
+FIND_LIBRARY(GLIB2GTHREAD_LIBRARY 
+    NAMES 
+        gthread
+        gthread-2.0
+    PATHS
+        /lib
+        /usr/lib
+        /usr/local/lib
+        /usr/lib64
+        /lib64
+        /usr/lib32
+        /usr/local/lib32
+)
+
+SET(GLIB2_LIBRARIES ${GLIB2_LIBRARY} ${GLIB2GIO_LIBRARY} 
+    ${GLIB2GOBJECT_LIBRARY} ${GLIB2GTHREAD_LIBRARY})
 
 IF(GLIB2_LIBRARIES AND GLIB2_INCLUDE_DIRS)
     SET(GLIB2_FOUND TRUE)
