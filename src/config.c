@@ -69,6 +69,8 @@ static void
 umounter_config_finalize(GObject *gobject) {
     UMounterConfig *self = UMOUNTER_CONFIG(gobject);
 
+    g_key_file_free(self->priv->application_config);
+
     /* Chain up to the parent class. */
     G_OBJECT_CLASS(umounter_config_parent_class)->finalize(gobject);
 }
@@ -121,5 +123,15 @@ umounter_config_class_init(UMounterConfigClass *cls) {
 static void
 umounter_config_init(UMounterConfig *self) {
     self->priv = UMOUNTER_CONFIG_GET_PRIVATE(self);
+
+    self->priv->application_config = g_key_file_new();
+}
+
+UMounterConfig*
+umounter_config_new(void) {
+    UMounterConfig *config = g_object_new(UMOUNTER_TYPE_CONFIG, 
+        NULL);
+
+    return config;
 }
 

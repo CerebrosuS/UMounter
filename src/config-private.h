@@ -20,6 +20,7 @@
 
 
 struct _UMounterConfigPrivate {
+    GKeyFile *application_config;
 };
 
 
