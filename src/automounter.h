@@ -65,7 +65,7 @@ umounter_automounter_get_type(void);
 
 /* Create a new UMounterAutomounter instance and returns it. */
 UMounterAutomounter* 
-umounter_automounter_new(void);
+umounter_automounter_new(UMounterConfig *config);
 
 /* Running the automounter... into the main loop. */
 gboolean 

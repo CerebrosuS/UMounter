@@ -20,6 +20,17 @@
 
 
 ////////////////////////////////////////////////////////////////////////////////
+
+enum {
+    PROP_0,
+    
+    /* UMounter config variables. */
+    
+    PROP_USER,
+    PROP_GROUP
+};
+
+////////////////////////////////////////////////////////////////////////////////
 /* Function declaration... All functions being defined here are static and
 therefore PRIVATE (can not be called outside this source file. */
 
@@ -54,7 +65,6 @@ umounter_config_dispose(GObject *gobject) {
     g_message(__FUNCTION__);
 
     UMounterConfig *self = UMOUNTER_CONFIG(gobject);
-
      
     /* In dispose, you are supposed to free all types referenced from this
     object which might themselves hold a reference to self. Generally,
@@ -69,7 +79,11 @@ static void
 umounter_config_finalize(GObject *gobject) {
     UMounterConfig *self = UMOUNTER_CONFIG(gobject);
 
-    g_key_file_free(self->priv->application_config);
+    if(NULL != self->priv->config_key_file)
+        g_key_file_free(self->priv->config_key_file);
+
+    if(NULL != self->priv->config_path)
+        g_free(self->priv->config_path);
 
     /* Chain up to the parent class. */
     G_OBJECT_CLASS(umounter_config_parent_class)->finalize(gobject);
@@ -82,6 +96,14 @@ umounter_config_set_property(GObject *gobject, guint property_id,
     UMounterConfig *self = UMOUNTER_CONFIG(gobject);
 
     switch(property_id) {
+        case PROP_USER:
+            g_free(self->priv->user);
+            self->priv->user = g_value_dup_string(value);
+            break;
+        case PROP_GROUP:
+            g_free(self->priv->group);
+            self->priv->group = g_value_dup_string(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
             break;
@@ -95,9 +117,15 @@ umounter_config_get_property(GObject *gobject, guint property_id,
     UMounterConfig *self = UMOUNTER_CONFIG(gobject);
 
     switch(property_id) {
+        case PROP_USER:
+            g_value_set_string(value, self->priv->user);
+            break;
+        case PROP_GROUP:
+            g_value_set_string(value, self->priv->group);
+            break;       
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
-            break;    
+            break;
     }
 }
 
@@ -115,6 +143,16 @@ umounter_config_class_init(UMounterConfigClass *cls) {
 
     /* Set different properties. */
 
+    pspec = g_param_spec_string("user", 
+        "The user name umounter should run with.", "Set user name.", "umounter",
+        G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+    g_object_class_install_property(gobject_class, PROP_USER, pspec);
+
+    pspec = g_param_spec_string("group", 
+        "The group name umounter should run with.", "Set group name.", 
+        "umounter", G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+    g_object_class_install_property(gobject_class, PROP_GROUP, pspec);
+
     /* Add private class... */
 
     g_type_class_add_private(cls, sizeof(UMounterConfigPrivate));
@@ -124,7 +162,8 @@ static void
 umounter_config_init(UMounterConfig *self) {
     self->priv = UMOUNTER_CONFIG_GET_PRIVATE(self);
 
-    self->priv->application_config = g_key_file_new();
+    self->priv->config_key_file = NULL;
+    self->priv->config_path = "/etc/umounter.conf";
 }
 
 UMounterConfig*
@@ -133,5 +172,52 @@ umounter_config_new(void) {
         NULL);
 
     return config;
+}
+
+gboolean
+umounter_config_read(UMounterConfig *self, const gchar *config_path, 
+    GError **error) {
+
+    GKeyFile *key_file;
+
+    if(NULL != self->priv->config_key_file) {
+        g_key_file_free(self->priv->config_key_file);
+        self->priv->config_key_file = NULL;
+    }
+
+    key_file = g_key_file_new();
+    g_key_file_set_list_separator(key_file, ',');
+
+    if(!g_key_file_load_from_file(key_file, config_path, G_KEY_FILE_NONE,
+        error)) {
+        
+        g_key_file_free(key_file);
+        
+        return FALSE;
+    }
+
+    /* From this point on, we cann read in the configuration variables. */
+
+    gchar *user = g_key_file_get_string(key_file, "General", "user", error);
+    if(*error == NULL) {
+        g_free(self->priv->user);
+        self->priv->user = user;
+    } else {
+        g_error_free(*error);
+        *error = NULL;
+    }
+
+    gchar *group = g_key_file_get_string(key_file, "General", "group", error);
+    if(*error == NULL) {
+        g_free(self->priv->group);
+        self->priv->group = group;
+    } else {
+        g_error_free(*error);
+        *error = NULL;
+    }
+    
+    self->priv->config_key_file = key_file;
+
+    return TRUE;
 }
 

@@ -20,7 +20,14 @@
 
 
 struct _UMounterConfigPrivate {
-    GKeyFile *application_config;
+    GKeyFile *config_key_file;
+    gchar *config_path;
+
+    /* UMounter config variables. */
+
+    /* The user and group, the application should run in. */
+    gchar *user;
+    gchar *group;
 };
 
 

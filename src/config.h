@@ -64,6 +64,11 @@ umounter_config_get_type(void);
 UMounterConfig* 
 umounter_config_new(void);
 
+/* Read in the config file. */
+gboolean
+umounter_config_read(UMounterConfig *self, const gchar *config_path, 
+    GError **error);
+
 ////////////////////////////////////////////////////////////////////////////////
 
 

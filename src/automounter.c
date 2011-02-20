@@ -224,9 +224,13 @@ umounter_automounter_volume_removed(GVolumeMonitor *volume_monitor,
 }
 
 UMounterAutomounter*
-umounter_automounter_new(void) {
+umounter_automounter_new(UMounterConfig *config) {
+    g_return_val_if_fail(config != NULL, NULL);
+
     UMounterAutomounter *automounter = g_object_new(UMOUNTER_TYPE_AUTOMOUNTER, 
         NULL);
+
+    automounter->priv->config = config;
 
     return automounter;
 }
