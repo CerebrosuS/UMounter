@@ -146,6 +146,8 @@ umounter_automounter_init(UMounterAutomounter *self) {
         G_CALLBACK(umounter_automounter_volume_added), NULL);
     g_signal_connect(volume_monitor, "volume-removed", 
         G_CALLBACK(umounter_automounter_volume_removed), NULL);
+
+    self->priv->volumes = umounter_volumes_new();
 }
 
 static void

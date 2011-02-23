@@ -25,9 +25,8 @@ struct _UMounterConfigPrivate {
 
     /* UMounter config variables. */
 
-    /* The user and group, the application should run in. */
-    gchar *user;
-    gchar *group;
+    /* The path for the rules. */
+    gchar *rules_path;
 };
 
 

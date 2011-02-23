@@ -26,8 +26,7 @@ enum {
     
     /* UMounter config variables. */
     
-    PROP_USER,
-    PROP_GROUP
+    PROP_RULES_PATH
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -96,13 +95,9 @@ umounter_config_set_property(GObject *gobject, guint property_id,
     UMounterConfig *self = UMOUNTER_CONFIG(gobject);
 
     switch(property_id) {
-        case PROP_USER:
-            g_free(self->priv->user);
-            self->priv->user = g_value_dup_string(value);
-            break;
-        case PROP_GROUP:
-            g_free(self->priv->group);
-            self->priv->group = g_value_dup_string(value);
+        case PROP_RULES_PATH:
+            g_free(self->priv->rules_path);
+            self->priv->rules_path = g_value_dup_string(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
@@ -117,12 +112,9 @@ umounter_config_get_property(GObject *gobject, guint property_id,
     UMounterConfig *self = UMOUNTER_CONFIG(gobject);
 
     switch(property_id) {
-        case PROP_USER:
-            g_value_set_string(value, self->priv->user);
-            break;
-        case PROP_GROUP:
-            g_value_set_string(value, self->priv->group);
-            break;       
+        case PROP_RULES_PATH:
+            g_value_set_string(value, self->priv->rules_path);
+            break;    
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
             break;
@@ -143,15 +135,10 @@ umounter_config_class_init(UMounterConfigClass *cls) {
 
     /* Set different properties. */
 
-    pspec = g_param_spec_string("user", 
-        "The user name umounter should run with.", "Set user name.", "umounter",
-        G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
-    g_object_class_install_property(gobject_class, PROP_USER, pspec);
-
-    pspec = g_param_spec_string("group", 
-        "The group name umounter should run with.", "Set group name.", 
-        "umounter", G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
-    g_object_class_install_property(gobject_class, PROP_GROUP, pspec);
+    pspec = g_param_spec_string("rules_path", 
+        "The path of the rules files.", "Set rules path.", 
+        "~/.umounter/rules.d", G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+    g_object_class_install_property(gobject_class, PROP_RULES_PATH, pspec);
 
     /* Add private class... */
 
@@ -163,7 +150,7 @@ umounter_config_init(UMounterConfig *self) {
     self->priv = UMOUNTER_CONFIG_GET_PRIVATE(self);
 
     self->priv->config_key_file = NULL;
-    self->priv->config_path = "/etc/umounter.conf";
+    self->priv->config_path = "~/.umounter/umounter.conf";
 }
 
 UMounterConfig*
@@ -198,19 +185,11 @@ umounter_config_read(UMounterConfig *self, const gchar *config_path,
 
     /* From this point on, we cann read in the configuration variables. */
 
-    gchar *user = g_key_file_get_string(key_file, "General", "user", error);
+    gchar *rules_path = g_key_file_get_string(key_file, "General", "rules_path", 
+        error);
     if(*error == NULL) {
-        g_free(self->priv->user);
-        self->priv->user = user;
-    } else {
-        g_error_free(*error);
-        *error = NULL;
-    }
-
-    gchar *group = g_key_file_get_string(key_file, "General", "group", error);
-    if(*error == NULL) {
-        g_free(self->priv->group);
-        self->priv->group = group;
+        g_free(self->priv->rules_path);
+        self->priv->rules_path = rules_path;
     } else {
         g_error_free(*error);
         *error = NULL;

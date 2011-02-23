@@ -15,19 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with Foobar.  If not, see <http://www.gnu.org/licenses/>. */
 
-#ifndef UMOUNTER_AUTOMOUNTER_PRIVATE_H
-#define UMOUNTER_AUTOMOUNTER_PRIVATE_H
+#ifndef UMOUNTER_VOLUMES_PRIVATE_H
+#define UMOUNTER_VOLUMES_PRIVATE_H
 
 
-#include "volumes.h"
-
-
-struct _UMounterAutomounterPrivate {
-    GMainLoop *main_loop;
-    UMounterConfig *config;
-    UMounterVolumes *volumes;
+struct _UMounterVolumesPrivate {
+    GList *volumes;
 };
 
 
-#endif /* UMOUNTER_AUTOMOUNTER_PRIVATE_H */
+#endif /* UMOUNTER_VOLUMES_PRIVATE_H */
 
