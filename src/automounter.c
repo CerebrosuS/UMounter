@@ -185,14 +185,16 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
 
     gboolean can_mount = g_volume_can_mount(volume);
 
-    g_print("-- Mount: ...");
+    if(can_mount) {
+        g_print("-- Mount: ...");
 
-    /* Create a mounting operation and mount it... */
-    mount_operation = g_mount_operation_new();
-    g_mount_operation_set_anonymous(mount_operation, TRUE);
+        /* Create a mounting operation and mount it... */
+        mount_operation = g_mount_operation_new();
+        g_mount_operation_set_anonymous(mount_operation, TRUE);
 
-    g_volume_mount(volume, G_MOUNT_MOUNT_NONE, NULL, NULL, 
-        umounter_automounter_volume_mount_ready, NULL);
+        g_volume_mount(volume, G_MOUNT_MOUNT_NONE, NULL, NULL, 
+            umounter_automounter_volume_mount_ready, NULL);
+    }
 
     /* Cleaning... */
     g_free(device);
