@@ -135,9 +135,11 @@ umounter_config_class_init(UMounterConfigClass *cls) {
 
     /* Set different properties. */
 
-    pspec = g_param_spec_string("rules_path", 
-        "The path of the rules files.", "Set rules path.", 
-        "~/.umounter/rules.d", G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+    const gchar* rules_path = g_build_path("/", g_get_home_dir(), 
+        ".umounter/rules.d");
+    pspec = g_param_spec_string("rules_path",
+        "The path of the rules files.", "Set rules path.", rules_path, 
+        G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
     g_object_class_install_property(gobject_class, PROP_RULES_PATH, pspec);
 
     /* Add private class... */

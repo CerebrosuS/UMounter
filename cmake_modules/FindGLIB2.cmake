@@ -5,8 +5,6 @@
 # Published under the GPLv3.
 #
 
-# If the variables already exist, no need to search.
-
 FIND_PATH(GLIB2_INCLUDE_DIR
     NAMES 
         glib.h

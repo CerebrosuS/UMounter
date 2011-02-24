@@ -28,10 +28,6 @@
 #include "config.h"
 
 
-static gint get_user_id(const gchar *user);
-static gint get_group_id(const gchar *group);
-
-
 gint main(gint argc, gchar **argv) {
 
     /* We really need a minimum glib version... */
@@ -42,14 +38,17 @@ gint main(gint argc, gchar **argv) {
 
     /* Get configuration... */
     GError *error = NULL;
-    UMounterConfig *config = g_object_new(UMOUNTER_TYPE_CONFIG, NULL);
-    if(!umounter_config_read(config, "~/.umounter/umounter.conf", &error)) {
+    UMounterConfig *config = umounter_config_new();
+    if(!umounter_config_read(config, "/home/christian/.umounter/umounter.conf", &error)) {
         g_warning("Can't read configuration: %s", error->message);
         g_error_free(error);
     }
 
+    UMounterRulesParser *rulesparser = umounter_rulesparser_new();
+
     /* Create the automounter object and start it... */
-    UMounterAutomounter *automounter = umounter_automounter_new(config);
+    UMounterAutomounter *automounter = umounter_automounter_new(config, 
+        rulesparser);
 
     return umounter_automounter_run(automounter);
 };

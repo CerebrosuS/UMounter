@@ -20,6 +20,15 @@
 
 
 ////////////////////////////////////////////////////////////////////////////////
+
+enum {
+    PROP_0,
+    
+    PROP_CONFIG,
+    PROP_RULESPARSER
+};
+
+////////////////////////////////////////////////////////////////////////////////
 /* Function declaration... All functions being defined here are static and
 therefore PRIVATE (can not be called outside this source file. */
 
@@ -36,13 +45,16 @@ static void
 umounter_automounter_finalize(GObject *gobject);
 
 static void 
-umounter_automounter_set_property(GObject *object, guint property_id, 
+umounter_automounter_set_property(GObject *gobject, guint property_id, 
     const GValue *value, GParamSpec *pspec);
 
 static void 
 umounter_automounter_get_property(GObject *gobject, guint property_id, 
     GValue *value, GParamSpec *pspec);
- 
+
+static void
+umounter_automounter_contructed(GObject *gobject);
+
 static void 
 umounter_automounter_volume_added(GVolumeMonitor *volume_monitor, 
     GVolume *volume, gpointer user_data);
@@ -95,6 +107,18 @@ umounter_automounter_set_property(GObject *gobject, guint property_id,
     UMounterAutomounter *self = UMOUNTER_AUTOMOUNTER(gobject);
 
     switch(property_id) {
+        case PROP_CONFIG:
+            if(NULL != self->priv->config)
+                g_object_unref(self->priv->config);
+
+            self->priv->config = g_value_get_object(value);
+            break;
+        case PROP_RULESPARSER:
+            if(NULL != self->priv->rulesparser)
+                g_object_unref(self->priv->rulesparser);
+
+            self->priv->rulesparser = g_value_get_object(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
             break;
@@ -108,10 +132,38 @@ umounter_automounter_get_property(GObject *gobject, guint property_id,
     UMounterAutomounter *self = UMOUNTER_AUTOMOUNTER(gobject);
 
     switch(property_id) {
+        case PROP_CONFIG:
+            g_value_set_object(value, self->priv->config);
+            break;
+        case PROP_RULESPARSER:
+            g_value_set_object(value, self->priv->rulesparser);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
             break;    
     }
+}
+
+static void
+umounter_automounter_constructed(GObject *gobject) {
+    /* Chain up to the parent constrcuted function. */
+    if(NULL != G_OBJECT_CLASS(umounter_automounter_parent_class)->constructed)
+        G_OBJECT_CLASS(umounter_automounter_parent_class)->constructed(gobject);
+
+    UMounterAutomounter *self = UMOUNTER_AUTOMOUNTER(gobject);
+
+    /* Parse all rules and set them to the UMounterVolumes. */
+    gchar *rules_path = NULL;
+    g_object_get(G_OBJECT(self->priv->config), "rules_path", &rules_path, NULL);
+    self->priv->volumes = umounter_rulesparser_parse(self->priv->rulesparser, 
+        (const gchar*) rules_path);
+
+    /* Build the signal connections. */
+    GVolumeMonitor *volume_monitor = g_volume_monitor_get();
+    g_signal_connect(volume_monitor, "volume-added", 
+        G_CALLBACK(umounter_automounter_volume_added), NULL);
+    g_signal_connect(volume_monitor, "volume-removed", 
+        G_CALLBACK(umounter_automounter_volume_removed), NULL);
 }
 
 static void
@@ -123,10 +175,21 @@ umounter_automounter_class_init(UMounterAutomounterClass *cls) {
 
     gobject_class->dispose = umounter_automounter_dispose;
     gobject_class->finalize = umounter_automounter_finalize;
+    gobject_class->constructed = umounter_automounter_constructed;
     gobject_class->set_property = umounter_automounter_set_property;
     gobject_class->get_property = umounter_automounter_get_property;
 
     /* Set different properties. */
+
+    pspec = g_param_spec_object("config",
+        "The object of config.", "Set config object.", UMOUNTER_TYPE_CONFIG, 
+        G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT);
+    g_object_class_install_property(gobject_class, PROP_CONFIG, pspec);
+
+    pspec = g_param_spec_object("rulesparser", "The object of rulesparser.", 
+        "Set rulesparser object.", UMOUNTER_TYPE_RULESPARSER, 
+        G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT);
+    g_object_class_install_property(gobject_class, PROP_RULESPARSER, pspec);
 
     /* Add private class... */
 
@@ -137,17 +200,10 @@ static void
 umounter_automounter_init(UMounterAutomounter *self) {
     self->priv = UMOUNTER_AUTOMOUNTER_GET_PRIVATE(self);
     
-    /* Create a main loop for this automounter. */
     self->priv->main_loop = g_main_loop_new(NULL, FALSE);
-
-    GVolumeMonitor *volume_monitor = g_volume_monitor_get();
-
-    g_signal_connect(volume_monitor, "volume-added", 
-        G_CALLBACK(umounter_automounter_volume_added), NULL);
-    g_signal_connect(volume_monitor, "volume-removed", 
-        G_CALLBACK(umounter_automounter_volume_removed), NULL);
-
-    self->priv->volumes = umounter_volumes_new();
+    self->priv->volumes = NULL;
+    self->priv->config = NULL;
+    self->priv->rulesparser = NULL;
 }
 
 static void
@@ -228,13 +284,14 @@ umounter_automounter_volume_removed(GVolumeMonitor *volume_monitor,
 }
 
 UMounterAutomounter*
-umounter_automounter_new(UMounterConfig *config) {
+umounter_automounter_new(UMounterConfig *config, 
+    UMounterRulesParser *rulesparser) {
+
     g_return_val_if_fail(config != NULL, NULL);
+    g_return_val_if_fail(rulesparser != NULL, NULL);
 
     UMounterAutomounter *automounter = g_object_new(UMOUNTER_TYPE_AUTOMOUNTER, 
-        NULL);
-
-    automounter->priv->config = config;
+        "config", config, "rulesparser", rulesparser, NULL);
 
     return automounter;
 }

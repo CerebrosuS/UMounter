@@ -39,6 +39,8 @@
 #include <gio/gio.h>
 
 #include "config.h"
+#include "volumes.h"
+#include "rulesparser.h"
 
 
 typedef struct _UMounterAutomounter UMounterAutomounter;
@@ -65,7 +67,8 @@ umounter_automounter_get_type(void);
 
 /* Create a new UMounterAutomounter instance and returns it. */
 UMounterAutomounter* 
-umounter_automounter_new(UMounterConfig *config);
+umounter_automounter_new(UMounterConfig *config, 
+    UMounterRulesParser *rulesparser);
 
 /* Running the automounter... into the main loop. */
 gboolean 
