@@ -23,6 +23,7 @@
 
 
 struct _UMounterRulesParserPrivate {
+    gint zero;
 };
 
 

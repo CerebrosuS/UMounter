@@ -45,11 +45,22 @@ static void
 umounter_rulesparser_get_property(GObject *gobject, guint property_id, 
     GValue *value, GParamSpec *pspec);
 
+static xmlDoc*
+umounter_rulesparser_get_doc(UMounterRulesParser *self, const gchar *file_path);
+
+static xmlNode*
+umounter_rulesparser_get_root_node(UMounterRulesParser *self, xmlDoc *doc);
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /* Macro for implementing the _get_type function and and defining a parent
 pointer, which is accessible from the whole source file. */
 G_DEFINE_TYPE(UMounterRulesParser, umounter_rulesparser, G_TYPE_OBJECT);
+
+GQuark
+umounter_rulesparser_error_quark(void) {
+    return g_quark_from_static_string("umounter-rulesparser-error-quark");
+}
 
 static void
 umounter_rulesparser_dispose(GObject *gobject) {
@@ -126,7 +137,7 @@ umounter_rulesparser_init(UMounterRulesParser *self) {
 }
 
 static xmlDoc*
-umounter_rulseparser_get_doc(UMounterRulesParser *self, 
+umounter_rulesparser_get_doc(UMounterRulesParser *self, 
     const gchar *file_path) {
 
     g_return_val_if_fail(NULL != self, NULL);
@@ -158,6 +169,54 @@ umounter_rulesparser_get_root_node(UMounterRulesParser *self, xmlDoc *doc) {
     return root_node;
 }
 
+static UMounterVolume*
+umounter_rulesparser_parse_rule(UMounterRulesParser *self, xmlDoc *doc, xmlNode 
+    *root_node, GError **error) {
+
+    g_return_val_if_fail(NULL != self, NULL);
+    g_return_val_if_fail(NULL != doc, NULL);
+    g_return_val_if_fail(NULL != root_node, NULL);
+    g_return_val_if_fail(NULL == error || NULL == *error, NULL);
+
+    UMounterVolume *volume;
+    xmlNode *current_node;
+
+    volume = umounter_volume_new();
+
+    if(0 != g_strcmp0(root_node->name, "volume")) {
+		g_set_error(error, UMOUNTER_RULESPARSER_ERROR, 
+            UMOUNTER_RULESPARSER_ERROR_PARSING, 
+            "Wrong tag name. Should be <volume> not %s", root_node->name);
+		
+        g_object_unref(volume);
+
+		return NULL;
+	}
+
+    current_node = root_node->xmlChildrenNode;
+    while(NULL != current_node) {
+        
+        /* Lets look for known tag names. */
+        if(0 == g_strcmp0(current_node->name, "name")) {
+            g_object_set(G_OBJECT(volume), (const gchar*)"name", 
+                xmlNodeListGetString(doc, current_node->xmlChildrenNode, 1), 
+                NULL);
+        } else if(0 == g_strcmp0(current_node->name, "uuid")) {
+            g_object_set(G_OBJECT(volume), (const gchar*)"uuid", 
+                xmlNodeListGetString(doc, current_node->xmlChildrenNode, 1), 
+                NULL);
+        } else if(0 == g_strcmp0(current_node->name, "ignore_mount")) {
+            g_object_set(G_OBJECT(volume), (const gchar*)"ignore_mount", TRUE,
+                NULL);
+        } else if(0 == g_strcmp0(current_node->name, "cmd")) {
+        }
+
+        current_node = current_node->next;
+    }
+
+    return volume;
+}
+
 UMounterRulesParser* 
 umounter_rulesparser_new(void) {
     UMounterRulesParser *rulesparser = g_object_new(UMOUNTER_TYPE_RULESPARSER,
@@ -170,35 +229,63 @@ UMounterVolumes*
 umounter_rulesparser_parse(UMounterRulesParser *self, const gchar *path) {
     g_return_val_if_fail(NULL != path, NULL);
 
+    /* Needed variables... */
     xmlDoc *doc;
-    xmlNode *cur_node;
+    xmlNode *root_node;
+
     GFile *rules_dir;
+    GFileInfo *file_info;
     GFileEnumerator *enumerator;
     GError *error;
 
+    const gchar* file_name;
+    gchar* file_path;
+
+    UMounterVolumes *volumes;
+
+    
+    /* Init volumes with a new object. */
+    volumes = umounter_volumes_new();
+
+    /* Error must be set to NULL. */
     error = NULL;
+
+    /* Create a new file object which is actually the rules dir. */
     rules_dir = g_file_new_for_path(path);
 
+    /* Get a list of all file info objects of the rules dir. */
     enumerator = g_file_enumerate_children(rules_dir, "*", 
         G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL, &error);
+
+    /* If error is not NULL there must be an error while getting the file info
+    objects. */
     if(NULL != error) {
         g_warning("Can't parse rule: %s : %s", error->message, path);
 
+        /* Clean memory of created datas... */
         g_object_unref(rules_dir);
         g_error_free(error);
 
         return NULL;
     }
 
-    /* Get file info for every file. */
-    GFileInfo *file_info = NULL;
-    error = NULL;
+    /* Set the file_info initial to NULL, otherwise the algo below won't work
+    as expected. */
+    file_info = NULL;
+
+    /* Now we can go throught all existing file info objects and have a look,
+    if this file is a rule file or not. */
     do {
+
         /* If there is a object from the last loop, unref it. */
         if(NULL != file_info)
             g_object_unref(file_info);
 
+        /* Get every next file info in the enumerator. */
         file_info = g_file_enumerator_next_file(enumerator, NULL, &error);
+
+        /* If any error occured getting the next file info, free space and
+        display the error. */
         if(NULL != error) {
             g_warning(error->message);
 
@@ -207,30 +294,69 @@ umounter_rulesparser_parse(UMounterRulesParser *self, const gchar *path) {
             g_error_free(error);
 
             return NULL;
-        } else if(NULL != file_info) {
-            gchar* file_name = (gchar*) g_file_info_get_attribute_string(
-                file_info, G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME);
-
-            /* Look if the string ends with .rule */
-            if(FALSE == g_str_has_suffix(file_name, ".rule")) {
-                g_free(file_name);
-                continue;
-            }
-            
-            g_print("%s\n", g_build_path("/", path, g_file_info_get_attribute_string(
-                file_info, G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME), NULL));
         }
+
+        /* If the file info object is NULL, but there was no error, we are at
+        the end of the file info objects. So lets continue the loop, which will
+        then exit. */ 
+        if(NULL == file_info)
+            continue;
+
+        /* Get the file name of an existing file info object. */
+        file_name = g_file_info_get_attribute_string(
+            file_info, G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME);
+
+        /* If the file name does not exist, we should skip the rest and continue
+        the loop. */
+        if(NULL == file_name)
+            continue;
+
+        /* Lets have a look if the file_name got the right suffix. Else we will
+        conitnue the loop. */
+        if(FALSE == g_str_has_suffix(file_name, ".rule"))
+            continue;
+
+        /* Try to get the full path of the file_name...*/
+        file_path = (gchar*) g_build_path("/", path, file_name, NULL);
+
+        /* ...and parse the file for getting the doc object. */
+        doc = umounter_rulesparser_get_doc(self, file_path);
+
+        /* After that, we can free the file_path, cause we won't need the file
+        path any longer. */
+        g_free(file_path);
+
+        /* If the creation of the document failed with a NULL return, we should
+        give a message and continue with the loop. */
+        if(NULL == doc)
+            continue;
+
+        /* When all went ok, we can create the root node... */
+        root_node = umounter_rulesparser_get_root_node(self, doc);
+
+        /* ...and parse it to get the volume. */
+        UMounterVolume *volume = umounter_rulesparser_parse_rule(
+            self, doc, root_node, &error);
+
+        if(NULL != error) {
+            g_warning(error->message);
+            g_clear_error(&error);
+        }        
+        
+        /* If parsing the root node fail, we will go on with the loop. */    
+        if(NULL != volume) {
+            if(FALSE == umounter_volumes_add(volumes, volume)) {
+                g_object_unref(volume);
+            } else {
+                g_debug("Adding a new volume entry.");
+            }
+        }
+
+        xmlFree(doc);
+        xmlFree(root_node);
     } while(NULL != file_info);
 
-    return NULL;
-
-//    doc = umounter_rulesparser_get_doc(self, file_path);
-
-//    if(xmlStrcmp(cur_node->name, "story")) {
-//        fprintf(stderr,"document of the wrong type, root node != story");
-//        xmlFreeDoc(doc);
-//        return;
-//    }
+    return volumes;
 }
 
 

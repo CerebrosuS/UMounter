@@ -19,7 +19,7 @@
 #define UMOUNTER_VOLUME_H
 
 
-#define UMOUNTER_TYPE_VOLUME (umounter_config_get_type())
+#define UMOUNTER_TYPE_VOLUME (umounter_volume_get_type())
 #define UMOUNTER_VOLUME(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), \
         UMOUNTER_TYPE_VOLUME, UMounterVolume))
 #define UMOUNTER_IS_VOLUME(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), \

@@ -44,6 +44,7 @@ gint main(gint argc, gchar **argv) {
         g_error_free(error);
     }
 
+    /* Create rulesparser... */
     UMounterRulesParser *rulesparser = umounter_rulesparser_new();
 
     /* Create the automounter object and start it... */

@@ -19,7 +19,7 @@
 #define UMOUNTER_RULESPARSER_H
 
 
-#define UMOUNTER_TYPE_RULESPARSER (umounter_config_get_type())
+#define UMOUNTER_TYPE_RULESPARSER (umounter_rulesparser_get_type())
 #define UMOUNTER_RULESPARSER(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), \
         UMOUNTER_TYPE_RULESPARSER, UMounterRulesParser))
 #define UMOUNTER_IS_RULESPARSER(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), \
@@ -33,6 +33,7 @@
 #define UMOUNTER_RULESPARSER_GET_PRIVATE(obj) \
         (G_TYPE_INSTANCE_GET_PRIVATE((obj), UMOUNTER_TYPE_RULESPARSER, \
         UMounterRulesParserPrivate))
+#define UMOUNTER_RULESPARSER_ERROR umounter_rulesparser_error_quark()
 
 #include <glib.h>
 #include <glib-object.h>
@@ -44,6 +45,7 @@
 typedef struct _UMounterRulesParser UMounterRulesParser;
 typedef struct _UMounterRulesParserClass UMounterRulesParserClass;
 typedef struct _UMounterRulesParserPrivate UMounterRulesParserPrivate;
+typedef enum _UMounterRulesParserError UMounterRulesParserError;
 
 struct _UMounterRulesParser {
     GObject parent_instance;
@@ -55,9 +57,16 @@ struct _UMounterRulesParserClass {
     GObjectClass parent_class;
 };
 
+enum _UMounterRulesParserError {
+    UMOUNTER_RULESPARSER_ERROR_PARSING /* Error while parsing a file. */
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 /* Function declaration... all this function are accessible form other source
 files and therefore something like public. :) */
+
+GQuark
+umounter_rulesparser_error_quark(void);
 
 GType 
 umounter_rulesparser_get_type(void);
@@ -69,7 +78,7 @@ umounter_rulesparser_new(void);
 /* Parse all the files in the given path. Returns the created volumes as a 
 list. */
 UMounterVolumes*
-umounter_rulseparser_parse(UMounterRulesParser *self, const gchar *path);
+umounter_rulesparser_parse(UMounterRulesParser *self, const gchar *path);
 
 ////////////////////////////////////////////////////////////////////////////////
 

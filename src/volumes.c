@@ -130,15 +130,18 @@ umounter_volumes_class_init(UMounterVolumesClass *cls) {
 static void
 umounter_volumes_init(UMounterVolumes *self) {
     self->priv = UMOUNTER_VOLUMES_GET_PRIVATE(self);
+    self->priv->volumes = NULL;
 }
 
 static UMounterVolume*
 umounter_volumes_exist_generic(UMounterVolumes *self, const gchar *value,
     gint type) {
 
-    g_return_val_if_fail(value != NULL, NULL);
+    g_return_val_if_fail(NULL != self, NULL);
+    g_return_val_if_fail(NULL != value, NULL);
 
-    gint count_volumes = g_list_length(self->priv->volumes);
+    gint count_volumes = (NULL == self->priv->volumes) ? g_list_length(
+        self->priv->volumes) : 0;
     gint loop_counter;
     for(loop_counter = 0; loop_counter < count_volumes; loop_counter++) {
         UMounterVolume *volume = (UMounterVolume*) g_list_nth(
@@ -169,6 +172,22 @@ umounter_volumes_exist_generic(UMounterVolumes *self, const gchar *value,
         if(g_strcmp0(volume_type_value, value) == 0)
             return volume;
     }
+}
+
+gboolean
+umounter_volumes_add(UMounterVolumes *self, UMounterVolume *volume) {
+    const gchar *name;
+    const gchar *uuid;
+
+    g_object_get(G_OBJECT(volume), "name", &name, NULL);
+    g_object_get(G_OBJECT(volume), "uuid", &uuid, NULL);
+
+    if(NULL != umounter_volumes_exist_name(self, name))
+        return FALSE;
+
+    self->priv->volumes = g_list_append(self->priv->volumes, volume);
+
+    return TRUE; 
 }
 
 UMounterVolumes*

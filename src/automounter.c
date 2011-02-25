@@ -153,17 +153,22 @@ umounter_automounter_constructed(GObject *gobject) {
     UMounterAutomounter *self = UMOUNTER_AUTOMOUNTER(gobject);
 
     /* Parse all rules and set them to the UMounterVolumes. */
-    gchar *rules_path = NULL;
+    const gchar *rules_path;
     g_object_get(G_OBJECT(self->priv->config), "rules_path", &rules_path, NULL);
     self->priv->volumes = umounter_rulesparser_parse(self->priv->rulesparser, 
-        (const gchar*) rules_path);
+        rules_path);
+
+    if(NULL == self->priv->volumes) {
+        g_debug("Creating empty volmes object cause parsing failed");
+        self->priv->volumes = umounter_volumes_new();
+    }    
 
     /* Build the signal connections. */
     GVolumeMonitor *volume_monitor = g_volume_monitor_get();
     g_signal_connect(volume_monitor, "volume-added", 
-        G_CALLBACK(umounter_automounter_volume_added), NULL);
+        G_CALLBACK(umounter_automounter_volume_added), self->priv->volumes);
     g_signal_connect(volume_monitor, "volume-removed", 
-        G_CALLBACK(umounter_automounter_volume_removed), NULL);
+        G_CALLBACK(umounter_automounter_volume_removed), self->priv->volumes);
 }
 
 static void
@@ -213,14 +218,14 @@ umounter_automounter_volume_mount_ready(GObject *source_object,
     GError *error;
     error = NULL;
     
-    gboolean mount_ok = g_volume_mount_finish((GVolume*)source_object, result, 
+    gboolean mount_ok = g_volume_mount_finish((GVolume*) source_object, result, 
         &error);
 
-    if(!mount_ok) {
+    if(FALSE == mount_ok) {
         g_print(error->message);
         g_error_free(error);
     } else {
-        g_print(" Ok!\n");
+        g_print(" Ok!");
     }
 }
 
@@ -228,30 +233,54 @@ static void
 umounter_automounter_volume_added(GVolumeMonitor *volume_monitor, 
     GVolume *volume, gpointer user_data) {
 
+    g_return_if_fail(NULL != user_data);
+    g_return_if_fail(UMOUNTER_IS_VOLUMES(user_data));
+
     gchar *device, *name, *uuid;
     GMountOperation *mount_operation;
+    UMounterVolumes *volumes;
+    UMounterVolume *tmp_volume;
+    gboolean ignore_mount;
+    
 
     device = g_volume_get_identifier(volume, 
         G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
     name = g_volume_get_name(volume);
     uuid = g_volume_get_uuid(volume);
+    if(NULL == uuid)
+        uuid = "";
 
-    g_print("Signal: volume added!\n");
+    g_print("\nSignal: volume added!\n");
     g_print("-- Device: %s\n", device);
     g_print("-- Name: %s\n", name);
     g_print("-- UUID: %s\n", uuid);
 
-    gboolean can_mount = g_volume_can_mount(volume);
+    gboolean can_mount = g_volume_can_mount(volume);   
 
-    if(can_mount) {
-        g_print("-- Mount: ...");
+    volumes = UMOUNTER_VOLUMES(user_data);
+    tmp_volume = umounter_volumes_exist_name(volumes, name);
+    if(NULL == tmp_volume) {
+        tmp_volume = umounter_volumes_exist_uuid(volumes, uuid);
+        if(NULL == tmp_volume) {
+            tmp_volume = umounter_volume_new();
+            g_object_set(G_OBJECT(tmp_volume), "name", name, "uuid", uuid, NULL);
+        }
+    }
 
-        /* Create a mounting operation and mount it... */
-        mount_operation = g_mount_operation_new();
-        g_mount_operation_set_anonymous(mount_operation, TRUE);
+    g_object_get(G_OBJECT(tmp_volume), "ignore_mount", &ignore_mount, NULL);
+    if(FALSE == ignore_mount) {
+        if(can_mount) {
+            g_print("-- Mount: ...");
 
-        g_volume_mount(volume, G_MOUNT_MOUNT_NONE, NULL, NULL, 
-            umounter_automounter_volume_mount_ready, NULL);
+            /* Create a mounting operation and mount it... */
+            mount_operation = g_mount_operation_new();
+            g_mount_operation_set_anonymous(mount_operation, TRUE);
+
+            g_volume_mount(volume, G_MOUNT_MOUNT_NONE, NULL, NULL, 
+                umounter_automounter_volume_mount_ready, NULL);
+        }
+    } else {
+        g_print("-- Mount: ... Ignore!");
     }
 
     /* Cleaning... */
@@ -271,7 +300,7 @@ umounter_automounter_volume_removed(GVolumeMonitor *volume_monitor,
     name = g_volume_get_name(volume);
     uuid = g_volume_get_uuid(volume);
 
-    g_print("Signal: volume removed!\n");
+    g_print("\nSignal: volume removed!\n");
     g_print("-- Device: %s\n", g_volume_get_identifier(volume,
         G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE));
     g_print("-- Name: %s\n", g_volume_get_name(volume));

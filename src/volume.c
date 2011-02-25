@@ -27,6 +27,7 @@ enum {
     PROP_UUID,
     PROP_NAME,
     PROP_DEVICE,
+    PROP_IGNORE_MOUNT,
     PROP_IS_MOUNTED,
     PROP_IS_AVAILABLE
 };
@@ -103,6 +104,9 @@ umounter_volume_set_property(GObject *gobject, guint property_id,
             g_free(self->priv->device);
             self->priv->device = g_value_dup_string(value);
             break;
+        case PROP_IGNORE_MOUNT:
+            self->priv->ignore_mount = g_value_get_boolean(value);
+            break;
         case PROP_IS_MOUNTED:
             self->priv->is_mounted = g_value_get_boolean(value);
             break;
@@ -130,6 +134,9 @@ umounter_volume_get_property(GObject *gobject, guint property_id,
             break;
         case PROP_DEVICE:
             g_value_set_string(value, self->priv->device);
+            break;
+        case PROP_IGNORE_MOUNT:
+            g_value_set_boolean(value, self->priv->ignore_mount);
             break;
         case PROP_IS_MOUNTED:
             g_value_set_boolean(value, self->priv->is_mounted);
@@ -171,6 +178,11 @@ umounter_volume_class_init(UMounterVolumeClass *cls) {
         "The device of the volume.", "Set device.", "", G_PARAM_READWRITE | 
         G_PARAM_CONSTRUCT);
     g_object_class_install_property(gobject_class, PROP_NAME, pspec);
+
+    pspec = g_param_spec_boolean("ignore_mount",
+        "The volume should be mounted or not.", "Set the ignore mount value.",
+        FALSE, G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+    g_object_class_install_property(gobject_class, PROP_IGNORE_MOUNT, pspec);
 
     pspec = g_param_spec_boolean("is_mounted", 
         "The volume is mounted or not.", "Set wether the volume is mounted.", 
