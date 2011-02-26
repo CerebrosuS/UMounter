@@ -26,18 +26,56 @@
 
 #include "automounter.h"
 #include "config.h"
+#include "logging.h"
 
 
 gint main(gint argc, gchar **argv) {
+    GError *error;
+    GOptionContext *context;
+    UMounterLogging *logging;
+    
+    gchar* config_file;
+    gboolean info;
+    gboolean debug;
+    
 
     /* We really need a minimum glib version... */
     if(!GLIB_CHECK_VERSION(2, 26, 0))
         g_error("GLib version 2.26.0 or above is needed");
 
+    error = NULL;
     g_type_init();
 
+    /* First we parse all arguments. */
+    config_file = g_build_path("/", g_get_home_dir(), 
+        ".umounter/umounter.conf");
+    debug = FALSE;
+    info = FALSE;
+    GOptionEntry option_entries[] = {
+        {"config", 'c', 0, G_OPTION_ARG_STRING, &config_file, \
+            "Define a configuration file.", NULL},
+        {"debug", 'd', 0, G_OPTION_ARG_NONE, &debug, \
+            "Show debug messages.", NULL},
+        {"info", 'i', 0, G_OPTION_ARG_NONE, &info, \
+            "Show info messages.", NULL},
+        {NULL}    
+    };
+
+    context = g_option_context_new("");
+    g_option_context_add_main_entries(context, option_entries, NULL);
+
+    if(!g_option_context_parse(context, &argc, &argv, &error)) {
+        g_error("Option parsing failed: %s\n", error->message);
+        g_error_free(error);
+        
+        return 0;
+    }
+
+    /* Setting the logging object. */
+    logging = umounter_logging_new();
+    g_object_set(G_OBJECT(logging), "debug", debug, "info", info, NULL);
+
     /* Get configuration... */
-    GError *error = NULL;
     UMounterConfig *config = umounter_config_new();
     if(!umounter_config_read(config, "/home/christian/.umounter/umounter.conf", &error)) {
         g_warning("Can't read configuration: %s", error->message);
