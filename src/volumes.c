@@ -139,55 +139,112 @@ umounter_volumes_exist_generic(UMounterVolumes *self, const gchar *value,
 
     g_return_val_if_fail(NULL != self, NULL);
     g_return_val_if_fail(NULL != value, NULL);
+    g_return_val_if_fail(type > VOLUME_START && type < VOLUME_END, NULL); 
 
-    gint count_volumes = (NULL == self->priv->volumes) ? g_list_length(
-        self->priv->volumes) : 0;
-    gint loop_counter;
-    for(loop_counter = 0; loop_counter < count_volumes; loop_counter++) {
-        UMounterVolume *volume = (UMounterVolume*) g_list_nth(
-            self->priv->volumes, loop_counter);
-        gchar *volume_type_value;
-        gchar *type_name;
-        switch(type) {
-            case VOLUME_NAME:
-                type_name = "name";
-                break;
-            case VOLUME_UUID:
-                type_name = "uuid";
-                break;
-            case VOLUME_DEVICE:
-                type_name = "device";
-                break;
-            default:
-                type_name = NULL;
-        }
-        
-        if(NULL == type_name) {
-            g_warning("Type could not be named.");
+    UMounterVolume *volume;
+    gint count_volumes;
+    gchar *type_value, *type_name;
+    gint i;
+
+
+    /* Get the count of elements from the volumes list. */
+    count_volumes = (self->priv->volumes == NULL) ? 0 : 
+        g_list_length(self->priv->volumes);
+    
+    g_debug("FUNC(%s) Length self->priv->volumes: %i", __FUNCTION__,
+        count_volumes);
+
+    /* Get a string of the type int. */
+    type_name = NULL;
+
+    switch(type) {
+        case VOLUME_NAME:
+            type_name = "name";
+            break;
+        case VOLUME_UUID:
+            type_name = "uuid";
+            break;
+        case VOLUME_DEVICE:
+            type_name = "device";
+            break;
+        default:
+            g_error("FUNC(%s) 'type' got a unkown value: %i", __FUNCTION__,
+                type);
+
+            return NULL;
+    }
+
+    g_debug("FUNC(%s) Value of 'type_name' after switch: %s", __FUNCTION__,
+        type_name);
+
+    /* Go through all of the volume elements and compare their value to the 
+    value given as a function parameter. */
+    volume = NULL;
+
+    for(i = 0; i < count_volumes; i++) {
+
+        /* Get the volume in the list. */
+        volume = UMOUNTER_VOLUME(g_list_nth_data(self->priv->volumes, i));
+
+        if(NULL == volume) {
+            g_error("FUNC(%s) Unexpected error, 'volume' == NULL.", 
+            __FUNCTION__);
+
+            g_free(type_name);
+            
             return NULL;
         }
 
-        g_object_get(G_OBJECT(volume), type_name, &volume_type_value);
+        /* We get the value with the type_name. */
+        g_object_get(G_OBJECT(volume), type_name, &type_value, NULL);
 
-        if(g_strcmp0(volume_type_value, value) == 0)
-            return volume;
+        /* If the value is the same as the one from this func above, the element
+        exist and we return it. */
+        if(0 == g_strcmp0(type_value, value)) {
+            g_debug("FUNC(%s) Find existing element: %s", __FUNCTION__, 
+                type_value);
+
+            break;
+        } else {
+            volume = NULL;
+        }
     }
+
+    return volume;
 }
 
 gboolean
-umounter_volumes_add(UMounterVolumes *self, UMounterVolume *volume) {
-    const gchar *name;
-    const gchar *uuid;
+umounter_volumes_add(UMounterVolumes *self, UMounterVolume *volume) {      
 
+    g_return_val_if_fail(NULL != self, FALSE);
+    g_return_val_if_fail(NULL != volume, FALSE);
+
+    UMounterVolume *tmp_volume;
+    const gchar *name, *uuid;
+
+
+    /* Get the name and uuid from the volume object and have a look if a
+    volume already exist with these values. */
     g_object_get(G_OBJECT(volume), "name", &name, NULL);
     g_object_get(G_OBJECT(volume), "uuid", &uuid, NULL);
 
-    if(NULL != umounter_volumes_exist_name(self, name))
+    tmp_volume = umounter_volumes_exist_volume_name_uuid(self, name, uuid);
+
+    /* Lets have a look, wether we find a volume. If we found one, we can't add
+    the given volume. */
+    if(NULL != tmp_volume) {
+        g_debug("FUNC(%s) Volume was found, no volume will be add.", 
+            __FUNCTION__);        
+
         return FALSE;
+    }
 
     self->priv->volumes = g_list_append(self->priv->volumes, volume);
 
-    return TRUE; 
+    g_debug("FUNC(%s) Add the volume with the given name (%s) and uuid (%s).", 
+        __FUNCTION__, name, uuid);
+
+    return TRUE;
 }
 
 UMounterVolumes*
@@ -195,6 +252,35 @@ umounter_volumes_new(void) {
     UMounterVolumes *volumes = g_object_new(UMOUNTER_TYPE_VOLUMES, NULL);
 
     return volumes;
+}
+
+UMounterVolume*
+umounter_volumes_exist_volume_name_uuid(UMounterVolumes *self, 
+    const gchar *name, const gchar *uuid) {
+
+    g_return_val_if_fail(NULL != self, NULL);
+
+    UMounterVolume *tmp_volume;
+
+    
+    tmp_volume = NULL;    
+
+    if(NULL != name)
+        tmp_volume = umounter_volumes_exist_name(self, name);
+    
+    if(NULL == tmp_volume) {
+        g_debug("FUNC(%s) No volume was found with the given name.", 
+            __FUNCTION__);
+
+        if(NULL != uuid)
+            tmp_volume = umounter_volumes_exist_uuid(self, uuid);
+
+        if(NULL == tmp_volume)
+            g_debug("FUNC(%s) No volume was found with the given uuid.", 
+                __FUNCTION__);
+    }
+
+    return tmp_volume;    
 }
 
 UMounterVolume*

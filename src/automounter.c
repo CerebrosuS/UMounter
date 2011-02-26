@@ -236,10 +236,10 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     g_return_if_fail(NULL != user_data);
     g_return_if_fail(UMOUNTER_IS_VOLUMES(user_data));
 
-    gchar *device, *name, *uuid;
     GMountOperation *mount_operation;
     UMounterVolumes *volumes;
     UMounterVolume *tmp_volume;
+    gchar *device, *name, *uuid;
     gboolean ignore_mount;
     
 
@@ -247,8 +247,21 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
         G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
     name = g_volume_get_name(volume);
     uuid = g_volume_get_uuid(volume);
-    if(NULL == uuid)
-        uuid = "";
+
+    g_debug("FUNC(%s) Volume name: %s", __FUNCTION__, name);
+    g_debug("FUNC(%s) Volume uuid: %s", __FUNCTION__, uuid);
+    g_debug("FUNC(%s) Volume device: %s", __FUNCTION__, device);
+
+    volumes = UMOUNTER_VOLUMES(user_data);
+    tmp_volume = umounter_volumes_exist_volume_name_uuid(volumes, name, uuid);
+
+    /* If can't find a volume with the given values, create a new one. */
+    if(NULL == tmp_volume) 
+        tmp_volume = umounter_volume_new();
+
+    /* Set the given values to the volume. */
+    g_object_set(G_OBJECT(tmp_volume), "name", name, "uuid", uuid,
+        "device", device, NULL);
 
     g_print("\nSignal: volume added!\n");
     g_print("-- Device: %s\n", device);
@@ -256,16 +269,6 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     g_print("-- UUID: %s\n", uuid);
 
     gboolean can_mount = g_volume_can_mount(volume);   
-
-    volumes = UMOUNTER_VOLUMES(user_data);
-    tmp_volume = umounter_volumes_exist_name(volumes, name);
-    if(NULL == tmp_volume) {
-        tmp_volume = umounter_volumes_exist_uuid(volumes, uuid);
-        if(NULL == tmp_volume) {
-            tmp_volume = umounter_volume_new();
-            g_object_set(G_OBJECT(tmp_volume), "name", name, "uuid", uuid, NULL);
-        }
-    }
 
     g_object_get(G_OBJECT(tmp_volume), "ignore_mount", &ignore_mount, NULL);
     if(FALSE == ignore_mount) {
@@ -284,9 +287,14 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     }
 
     /* Cleaning... */
-    g_free(device);
-    g_free(name);
-    g_free(uuid);
+    if(NULL != device)
+        g_free(device);
+
+    if(NULL != name)
+        g_free(name);
+
+    if(NULL != uuid)
+        g_free(uuid);
 }
 
 static void 

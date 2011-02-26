@@ -55,9 +55,13 @@ struct _UMounterVolumesClass {
 };
 
 enum {
+    VOLUME_START = 0,
+
     VOLUME_NAME,
     VOLUME_UUID,
-    VOLUME_DEVICE
+    VOLUME_DEVICE,
+    
+    VOLUME_END
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -72,6 +76,10 @@ UMounterVolumes*
 umounter_volumes_new(void);
 
 /* Several exist functions. If exist fails, NULL will be returned. */
+UMounterVolume*
+umounter_volumes_exist_volume_name_uuid(UMounterVolumes *self, 
+    const gchar *name, const gchar *uuid);
+
 UMounterVolume*
 umounter_volumes_exist_name(UMounterVolumes *self, const gchar *name);
 
