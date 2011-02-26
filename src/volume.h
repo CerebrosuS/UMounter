@@ -64,6 +64,10 @@ umounter_volume_get_type(void);
 UMounterVolume* 
 umounter_volume_new(void);
 
+/* Adding a new command to the command_list. */
+gboolean
+umounter_volume_add_command(UMounterVolume *self, gchar *command);
+
 ////////////////////////////////////////////////////////////////////////////////
 
 

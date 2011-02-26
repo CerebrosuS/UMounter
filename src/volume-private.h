@@ -20,9 +20,12 @@
 
 
 struct _UMounterVolumePrivate {
+    GList *command_list;
+
     gchar *uuid;
     gchar *name;
     gchar *device;
+
     gboolean ignore_mount;
     gboolean is_mounted;
     gboolean is_available;

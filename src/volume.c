@@ -29,7 +29,8 @@ enum {
     PROP_DEVICE,
     PROP_IGNORE_MOUNT,
     PROP_IS_MOUNTED,
-    PROP_IS_AVAILABLE
+    PROP_IS_AVAILABLE,
+    PROP_COMMAND_LIST
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -143,7 +144,10 @@ umounter_volume_get_property(GObject *gobject, guint property_id,
             break;
         case PROP_IS_AVAILABLE:
             g_value_set_boolean(value, self->priv->is_available);
-            break;   
+            break;
+        case PROP_COMMAND_LIST:
+            g_value_set_pointer(value, self->priv->command_list);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
             break;
@@ -194,6 +198,11 @@ umounter_volume_class_init(UMounterVolumeClass *cls) {
         G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
     g_object_class_install_property(gobject_class, PROP_IS_AVAILABLE, pspec);
 
+    pspec = g_param_spec_pointer("command_list",
+        "The list with alle commands that will be run when the volume will be"
+        "added.", "The whole list.", G_PARAM_READABLE);
+    g_object_class_install_property(gobject_class, PROP_COMMAND_LIST, pspec);
+
     /* Add private class... */
 
     g_type_class_add_private(cls, sizeof(UMounterVolumePrivate));
@@ -202,6 +211,8 @@ umounter_volume_class_init(UMounterVolumeClass *cls) {
 static void
 umounter_volume_init(UMounterVolume *self) {
     self->priv = UMOUNTER_VOLUME_GET_PRIVATE(self);
+    
+    self->priv->command_list = NULL;
 }
 
 UMounterVolume*
@@ -209,5 +220,12 @@ umounter_volume_new(void) {
     UMounterVolume *volume = g_object_new(UMOUNTER_TYPE_VOLUME, NULL);
 
     return volume;
+}
+
+gboolean
+umounter_volume_add_command(UMounterVolume *self, gchar *command) {
+    self->priv->command_list = g_list_append(self->priv->command_list, command);
+
+    return TRUE;
 }
 

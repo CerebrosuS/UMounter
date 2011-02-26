@@ -225,7 +225,7 @@ umounter_automounter_volume_mount_ready(GObject *source_object,
         g_print(error->message);
         g_error_free(error);
     } else {
-        g_print(" Ok!");
+        g_print(" Ok!\n\n");
     }
 }
 
@@ -237,8 +237,10 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     g_return_if_fail(UMOUNTER_IS_AUTOMOUNTER(user_data));
 
     UMounterAutomounter *self;
-    GMountOperation *mount_operation;
     UMounterVolume *tmp_volume;
+    GMountOperation *mount_operation;
+    GList *command_list;
+    GError *error;
     gchar *device, *name, *uuid;
     gboolean ignore_mount;
     gboolean automount;
@@ -271,6 +273,8 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     g_print("-- Name: %s\n", name);
     g_print("-- UUID: %s\n", uuid);
 
+
+    /* Automounting, if it should and can... */
     gboolean can_mount = g_volume_can_mount(volume);   
 
     g_object_get(G_OBJECT(tmp_volume), "ignore_mount", &ignore_mount, NULL);
@@ -288,7 +292,25 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
                 umounter_automounter_volume_mount_ready, NULL);
         }
     } else {
-        g_print("-- Mount: ... Ignore!");
+        g_print("-- Mount: ... Ignore!\n\n");
+    }
+
+    /* Running special commands if some are defined. */
+    error = NULL;
+    g_object_get(G_OBJECT(tmp_volume), "command_list", &command_list, NULL);
+    if(NULL != command_list) {
+        gint i;
+        gint list_length;
+
+        list_length = g_list_length(command_list);
+        for(i = 0; i < list_length; i++) {
+            const gchar* command = g_list_nth_data(command_list, i);
+
+            g_debug("FUNC(%s) Running a user defined command: %s", __FUNCTION__,
+                command);
+
+            g_spawn_command_line_async(command, &error);
+        }
     }
 
     /* Cleaning... */

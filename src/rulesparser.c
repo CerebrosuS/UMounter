@@ -209,6 +209,9 @@ umounter_rulesparser_parse_rule(UMounterRulesParser *self, xmlDoc *doc, xmlNode
             g_object_set(G_OBJECT(volume), (const gchar*)"ignore_mount", TRUE,
                 NULL);
             g_debug("Set ignore_mount to TRUE.");
+        } else if(0 == g_strcmp0(current_node->name, "command")) {
+            umounter_volume_add_command(volume, xmlNodeListGetString(doc, 
+                current_node->xmlChildrenNode, 1));
         } else if(0 == g_strcmp0(current_node->name, "cmd")) {
         }
 
