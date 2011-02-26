@@ -166,9 +166,9 @@ umounter_automounter_constructed(GObject *gobject) {
     /* Build the signal connections. */
     GVolumeMonitor *volume_monitor = g_volume_monitor_get();
     g_signal_connect(volume_monitor, "volume-added", 
-        G_CALLBACK(umounter_automounter_volume_added), self->priv->volumes);
+        G_CALLBACK(umounter_automounter_volume_added), self);
     g_signal_connect(volume_monitor, "volume-removed", 
-        G_CALLBACK(umounter_automounter_volume_removed), self->priv->volumes);
+        G_CALLBACK(umounter_automounter_volume_removed), self);
 }
 
 static void
@@ -234,14 +234,17 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     GVolume *volume, gpointer user_data) {
 
     g_return_if_fail(NULL != user_data);
-    g_return_if_fail(UMOUNTER_IS_VOLUMES(user_data));
+    g_return_if_fail(UMOUNTER_IS_AUTOMOUNTER(user_data));
 
+    UMounterAutomounter *self;
     GMountOperation *mount_operation;
-    UMounterVolumes *volumes;
     UMounterVolume *tmp_volume;
     gchar *device, *name, *uuid;
     gboolean ignore_mount;
+    gboolean automount;
     
+
+    self = UMOUNTER_AUTOMOUNTER(user_data);
 
     device = g_volume_get_identifier(volume, 
         G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
@@ -252,8 +255,8 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     g_debug("FUNC(%s) Volume uuid: %s", __FUNCTION__, uuid);
     g_debug("FUNC(%s) Volume device: %s", __FUNCTION__, device);
 
-    volumes = UMOUNTER_VOLUMES(user_data);
-    tmp_volume = umounter_volumes_exist_volume_name_uuid(volumes, name, uuid);
+    tmp_volume = umounter_volumes_exist_volume_name_uuid(self->priv->volumes, 
+        name, uuid);
 
     /* If can't find a volume with the given values, create a new one. */
     if(NULL == tmp_volume) 
@@ -271,7 +274,9 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     gboolean can_mount = g_volume_can_mount(volume);   
 
     g_object_get(G_OBJECT(tmp_volume), "ignore_mount", &ignore_mount, NULL);
-    if(FALSE == ignore_mount) {
+    g_object_get(G_OBJECT(self->priv->config), "automount", 
+        &automount, NULL);
+    if(FALSE == ignore_mount && TRUE == automount) {
         if(can_mount) {
             g_print("-- Mount: ...");
 

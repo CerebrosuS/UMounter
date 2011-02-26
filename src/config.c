@@ -26,7 +26,8 @@ enum {
     
     /* UMounter config variables. */
     
-    PROP_RULES_PATH
+    PROP_RULES_PATH,
+    PROP_AUTOMOUNT
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -99,6 +100,9 @@ umounter_config_set_property(GObject *gobject, guint property_id,
             g_free(self->priv->rules_path);
             self->priv->rules_path = g_value_dup_string(value);
             break;
+        case PROP_AUTOMOUNT:
+            self->priv->automount = g_value_get_boolean(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
             break;
@@ -114,7 +118,10 @@ umounter_config_get_property(GObject *gobject, guint property_id,
     switch(property_id) {
         case PROP_RULES_PATH:
             g_value_set_string(value, self->priv->rules_path);
-            break;    
+            break;
+        case PROP_AUTOMOUNT:
+            g_value_set_boolean(value, self->priv->automount);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
             break;
@@ -142,6 +149,12 @@ umounter_config_class_init(UMounterConfigClass *cls) {
         G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
     g_object_class_install_property(gobject_class, PROP_RULES_PATH, pspec);
 
+    pspec = g_param_spec_boolean("automount",
+        "This option can stop whole automounting.", "Set automounting option.",
+        TRUE, G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+    g_object_class_install_property(gobject_class, PROP_AUTOMOUNT,
+        pspec);
+
     /* Add private class... */
 
     g_type_class_add_private(cls, sizeof(UMounterConfigPrivate));
@@ -168,6 +181,8 @@ umounter_config_read(UMounterConfig *self, const gchar *config_path,
     GError **error) {
 
     GKeyFile *key_file;
+    gboolean automount;
+
 
     if(NULL != self->priv->config_key_file) {
         g_key_file_free(self->priv->config_key_file);
@@ -186,7 +201,6 @@ umounter_config_read(UMounterConfig *self, const gchar *config_path,
     }
 
     /* From this point on, we cann read in the configuration variables. */
-
     gchar *rules_path = g_key_file_get_string(key_file, "General", "rules_path", 
         error);
     if(*error == NULL) {
@@ -196,6 +210,23 @@ umounter_config_read(UMounterConfig *self, const gchar *config_path,
         g_error_free(*error);
         *error = NULL;
     }
+
+    /* Get the automounting option. */
+    automount = g_key_file_get_boolean(key_file, "General", 
+        "automount", error);
+    
+    if(NULL != *error) {
+        g_warning("FUNC(%s) Cannot read the 'automount' config: %s",
+            __FUNCTION__, (*error)->message);
+    
+        automount = TRUE;
+
+        g_error_free(*error);
+        *error = NULL;
+    }
+
+    g_object_set(G_OBJECT(self), "automount", automount, 
+        NULL);
     
     self->priv->config_key_file = key_file;
 

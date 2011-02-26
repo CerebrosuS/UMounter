@@ -27,6 +27,7 @@ struct _UMounterConfigPrivate {
 
     /* The path for the rules. */
     gchar *rules_path;
+    gboolean automount;
 };
 
 
