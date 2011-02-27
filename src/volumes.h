@@ -93,19 +93,6 @@ umounter_volumes_exist_device(UMounterVolumes *self, const gchar *device);
 gboolean
 umounter_volumes_add(UMounterVolumes *self, UMounterVolume *volume);
 
-/* Removes a volume from the volumes and returns the element. */
-UMounterVolume*
-umounter_volumes_remove(UMounterVolumes *self, UMounterVolume *volume);
-
-UMounterVolume*
-umounter_volumes_remove_name(UMounterVolumes *self, const gchar *name);
-
-UMounterVolume*
-umounter_volumes_remove_uuid(UMounterVolumes *self, const gchar *uuid);
-
-UMounterVolume*
-umounter_volumes_remove_device(UMounterVolumes *self, const gchar *device);
-
 ////////////////////////////////////////////////////////////////////////////////
 
 

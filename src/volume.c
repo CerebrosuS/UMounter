@@ -30,7 +30,8 @@ enum {
     PROP_IGNORE_MOUNT,
     PROP_IS_MOUNTED,
     PROP_IS_AVAILABLE,
-    PROP_COMMAND_LIST
+    PROP_COMMAND_LIST,
+    PROP_COMMAND_ON_MOUNT_LIST
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -148,6 +149,9 @@ umounter_volume_get_property(GObject *gobject, guint property_id,
         case PROP_COMMAND_LIST:
             g_value_set_pointer(value, self->priv->command_list);
             break;
+        case PROP_COMMAND_ON_MOUNT_LIST:
+            g_value_set_pointer(value, self->priv->command_on_mount_list);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
             break;
@@ -203,6 +207,12 @@ umounter_volume_class_init(UMounterVolumeClass *cls) {
         "added.", "The whole list.", G_PARAM_READABLE);
     g_object_class_install_property(gobject_class, PROP_COMMAND_LIST, pspec);
 
+    pspec = g_param_spec_pointer("command_on_mount_list",
+        "The list with alle commands that will be run when the volume will be"
+        "mounted.", "The whole list.", G_PARAM_READABLE);
+    g_object_class_install_property(gobject_class, PROP_COMMAND_ON_MOUNT_LIST, 
+        pspec);
+
     /* Add private class... */
 
     g_type_class_add_private(cls, sizeof(UMounterVolumePrivate));
@@ -213,6 +223,7 @@ umounter_volume_init(UMounterVolume *self) {
     self->priv = UMOUNTER_VOLUME_GET_PRIVATE(self);
     
     self->priv->command_list = NULL;
+    self->priv->command_on_mount_list = NULL;
 }
 
 UMounterVolume*

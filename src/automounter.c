@@ -209,16 +209,19 @@ umounter_automounter_volume_mount_ready(GObject *source_object,
     GAsyncResult *result, gpointer user_data) {
 
     GError *error;
+        
+    gboolean mount_ok;
+
+
     error = NULL;
-    
-    gboolean mount_ok = g_volume_mount_finish((GVolume*) source_object, result, 
+    mount_ok = g_volume_mount_finish((GVolume*) source_object, result, 
         &error);
 
     if(FALSE == mount_ok) {
-        g_print(error->message);
+        g_error(error->message);
         g_error_free(error);
     } else {
-        g_print(" Ok!\n\n");
+        g_message(" Ok!\n\n");
     }
 }
 
@@ -234,13 +237,16 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     GMountOperation *mount_operation;
     GList *command_list;
     GError *error;
+
     gchar *device, *name, *uuid;
     gboolean ignore_mount;
     gboolean automount;
     
 
+    /* Get the umounter automounter object from a gpointer. */
     self = UMOUNTER_AUTOMOUNTER(user_data);
 
+    /* Init device information string. */
     device = g_volume_get_identifier(volume, 
         G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
     name = g_volume_get_name(volume);
@@ -250,6 +256,7 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     g_debug("FUNC(%s) Volume uuid: %s", __FUNCTION__, uuid);
     g_debug("FUNC(%s) Volume device: %s", __FUNCTION__, device);
 
+    /* Try to get a volume with the given name or uuid. */
     tmp_volume = umounter_volumes_exist_volume_name_uuid(self->priv->volumes, 
         name, uuid);
 
@@ -261,10 +268,10 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     g_object_set(G_OBJECT(tmp_volume), "name", name, "uuid", uuid,
         "device", device, NULL);
 
-    g_print("\nSignal: volume added!\n");
-    g_print("-- Device: %s\n", device);
-    g_print("-- Name: %s\n", name);
-    g_print("-- UUID: %s\n", uuid);
+    g_message("SIGNAL: volume added!");
+    g_message("Device: %s", device);
+    g_message("Name: %s", name);
+    g_message("UUID: %s", uuid);
 
 
     /* Automounting, if it should and can... */
@@ -275,17 +282,17 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
         &automount, NULL);
     if(FALSE == ignore_mount && TRUE == automount) {
         if(can_mount) {
-            g_print("-- Mount: ...");
+            g_message("Mount: ...");
 
             /* Create a mounting operation and mount it... */
             mount_operation = g_mount_operation_new();
             g_mount_operation_set_anonymous(mount_operation, TRUE);
 
             g_volume_mount(volume, G_MOUNT_MOUNT_NONE, NULL, NULL, 
-                umounter_automounter_volume_mount_ready, NULL);
+                umounter_automounter_volume_mount_ready, self);
         }
     } else {
-        g_print("-- Mount: ... Ignore!\n\n");
+        g_message("Mount: ... Ignore!");
     }
 
     /* Running special commands if some are defined. */
@@ -301,8 +308,12 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
 
             g_debug("FUNC(%s) Running a user defined command: %s", __FUNCTION__,
                 command);
-
-            g_spawn_command_line_async(command, &error);
+            
+            /* If the command is NULL, nothing will be executed. */
+            if(NULL != command) {
+                g_message("Running command: %s", command);
+                g_spawn_command_line_async(command, &error);
+            }
         }
     }
 
@@ -321,23 +332,38 @@ static void
 umounter_automounter_volume_removed(GVolumeMonitor *volume_monitor, 
     GVolume *volume, gpointer user_data) {
 
+    g_return_if_fail(NULL != user_data);
+    g_return_if_fail(UMOUNTER_IS_AUTOMOUNTER(user_data));
+
+    UMounterAutomounter *self;
+
     gchar *device, *name, *uuid;
 
+
+    /* Get the umounter automounter object from a gpointer. */
+    self = UMOUNTER_AUTOMOUNTER(user_data);
+
+    /* Init device information string. */
     device = g_volume_get_identifier(volume, 
         G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
     name = g_volume_get_name(volume);
     uuid = g_volume_get_uuid(volume);
 
-    g_print("\nSignal: volume removed!\n");
-    g_print("-- Device: %s\n", g_volume_get_identifier(volume,
+    g_message("SIGNAL: volume removed!");
+    g_message("Device: %s", g_volume_get_identifier(volume,
         G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE));
-    g_print("-- Name: %s\n", g_volume_get_name(volume));
-    g_print("-- UUID: %s\n", g_volume_get_uuid(volume));
+    g_message("Name: %s", g_volume_get_name(volume));
+    g_message("UUID: %s", g_volume_get_uuid(volume));
 
     /* Cleaning... */
-    g_free(device);
-    g_free(name);
-    g_free(uuid);
+    if(NULL != device)
+        g_free(device);
+
+    if(NULL != name)
+        g_free(name);
+
+    if(NULL != uuid)
+        g_free(uuid);
 }
 
 UMounterAutomounter*

@@ -263,23 +263,29 @@ umounter_volumes_exist_volume_name_uuid(UMounterVolumes *self,
     UMounterVolume *tmp_volume;
 
     
+    /* Initialisation of tmp_volume to NULL. */
     tmp_volume = NULL;    
 
+    /* If we got a name, we can search for a volume with the name. */
     if(NULL != name)
         tmp_volume = umounter_volumes_exist_name(self, name);
     
+    /* If no volume was found... */
     if(NULL == tmp_volume) {
         g_debug("FUNC(%s) No volume was found with the given name.", 
             __FUNCTION__);
 
+        /* ...and a uuid exist, we search for a volume with the given uuid. */
         if(NULL != uuid)
             tmp_volume = umounter_volumes_exist_uuid(self, uuid);
 
+        /* Just write a debug message if no volume was found. */
         if(NULL == tmp_volume)
             g_debug("FUNC(%s) No volume was found with the given uuid.", 
                 __FUNCTION__);
     }
 
+    /* Return the found volume, or NULL if no one was found. */
     return tmp_volume;    
 }
 

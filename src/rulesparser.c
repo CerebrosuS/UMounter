@@ -181,8 +181,11 @@ umounter_rulesparser_parse_rule(UMounterRulesParser *self, xmlDoc *doc, xmlNode
     UMounterVolume *volume;
     xmlNode *current_node;
 
+
+    /* Create new volume to return. */
     volume = umounter_volume_new();
 
+    /* The root node must have a special name. */
     if(0 != g_strcmp0(root_node->name, "volume")) {
 		g_set_error(error, UMOUNTER_RULESPARSER_ERROR, 
             UMOUNTER_RULESPARSER_ERROR_PARSING, 
@@ -193,6 +196,8 @@ umounter_rulesparser_parse_rule(UMounterRulesParser *self, xmlDoc *doc, xmlNode
 		return NULL;
 	}
 
+    /* Now we can get the childs of the root node and go through all of them
+    with a loop. */
     current_node = root_node->xmlChildrenNode;
     while(NULL != current_node) {
         
@@ -212,7 +217,9 @@ umounter_rulesparser_parse_rule(UMounterRulesParser *self, xmlDoc *doc, xmlNode
         } else if(0 == g_strcmp0(current_node->name, "command")) {
             umounter_volume_add_command(volume, xmlNodeListGetString(doc, 
                 current_node->xmlChildrenNode, 1));
-        } else if(0 == g_strcmp0(current_node->name, "cmd")) {
+        } else if(0 == g_strcmp0(current_node->name, "command_on_mount")) {
+            umounter_volume_add_command(colume, xmlNodeListGetString(doc,
+                current_node->xmlChildrenNode, 1));
         }
 
         current_node = current_node->next;

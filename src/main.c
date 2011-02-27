@@ -55,7 +55,7 @@ gint main(gint argc, gchar **argv) {
     gchar* log_file_path;
     gboolean error0;
     gboolean critical;
-    gboolean info;
+    gboolean message;
     gboolean debug;
     gboolean log_to_file;
     
@@ -76,23 +76,23 @@ gint main(gint argc, gchar **argv) {
     log_file_path = g_build_path("/", g_get_home_dir(), 
         ".umounter/umounter.log");
     debug = FALSE;
-    info = FALSE;
+    message = FALSE;
     error0 = FALSE;
     critical = FALSE;
     log_to_file = FALSE;
     GOptionEntry option_entries[] = {
-        {"config", ' ', 0, G_OPTION_ARG_STRING, &config_file,
+        {"config", 0, 0, G_OPTION_ARG_STRING, &config_file,
             "Define a configuration file.", NULL},
-        {"log-file-path", 'l', 0, G_OPTION_ARG_STRING, &log_file_path,
+        {"log-file", 0, 0, G_OPTION_ARG_STRING, &log_file_path,
             "Define a log file.", NULL},
         {"debug", 'd', 0, G_OPTION_ARG_NONE, &debug,
             "Show debug messages.", NULL},
-        {"info", 'i', 0, G_OPTION_ARG_NONE, &info,
+        {"message", 'm', 0, G_OPTION_ARG_NONE, &message,
             "Show info messages.", NULL},
         {"error", 'e', 0, G_OPTION_ARG_NONE, &error0,
-            "Show info messages.", NULL},
+            "Show error messages.", NULL},
         {"critical", 'c', 0, G_OPTION_ARG_NONE, &critical,
-            "Show info messages.", NULL},
+            "Show critical messages.", NULL},
         {"log-to-file", 'f', 0, G_OPTION_ARG_NONE, &log_to_file,
             "If true logging goes to a file.", NULL},
         {NULL}    
@@ -110,9 +110,9 @@ gint main(gint argc, gchar **argv) {
 
     /* Setting the logging object. */
     logging = umounter_logging_new();
-    g_object_set(G_OBJECT(logging), "debug", debug, "info", info, "log_to_file",
-        log_to_file, "log_file_path", log_file_path, "error", error0,
-        "critical", critical, NULL);
+    g_object_set(G_OBJECT(logging), "debug", debug, "message", message, 
+        "log_to_file", log_to_file, "log_file_path", log_file_path, "error",
+        error0, "critical", critical, NULL);
 
     /* Get configuration... */
     UMounterConfig *config = umounter_config_new();

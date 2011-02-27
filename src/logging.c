@@ -27,7 +27,7 @@ enum {
     PROP_0,
 
     PROP_DEBUG,
-    PROP_INFO,
+    PROP_MESSAGE,
     PROP_CRITICAL,
     PROP_ERROR,
     PROP_LOG_TO_FILE,
@@ -115,11 +115,11 @@ umounter_logging_constructed(GObject *gobject) {
     /* Set the default logging handler. */
     g_log_set_handler(NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_ERROR | 
         G_LOG_LEVEL_DEBUG | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_MESSAGE | 
-        G_LOG_LEVEL_INFO | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, 
+        G_LOG_LEVEL_MESSAGE | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, 
         umounter_logging_handler, self);
     g_log_set_handler("GLib", G_LOG_LEVEL_WARNING | G_LOG_LEVEL_ERROR | 
         G_LOG_LEVEL_DEBUG | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_MESSAGE | 
-        G_LOG_LEVEL_INFO | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, 
+        G_LOG_LEVEL_MESSAGE | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, 
         umounter_logging_handler, self);
 }
 
@@ -133,8 +133,8 @@ umounter_logging_set_property(GObject *gobject, guint property_id,
         case PROP_DEBUG:
             self->priv->debug = g_value_get_boolean(value);
             break;
-        case PROP_INFO:
-            self->priv->info = g_value_get_boolean(value);
+        case PROP_MESSAGE:
+            self->priv->message = g_value_get_boolean(value);
             break;
         case PROP_CRITICAL:
             self->priv->critical = g_value_get_boolean(value);
@@ -151,7 +151,7 @@ umounter_logging_set_property(GObject *gobject, guint property_id,
 
             self->priv->log_file_path = g_value_dup_string(value);
             
-            /* Informate, that the log_file_name has changed. */
+            /* MESSAGErmate, that the log_file_name has changed. */
             umounter_logging_log_file_path_changed(self);
             break;
         default:
@@ -170,8 +170,8 @@ umounter_logging_get_property(GObject *gobject, guint property_id,
         case PROP_DEBUG:
             g_value_set_boolean(value, self->priv->debug);
             break;
-        case PROP_INFO:
-            g_value_set_boolean(value, self->priv->info);
+        case PROP_MESSAGE:
+            g_value_set_boolean(value, self->priv->message);
             break;
         case PROP_CRITICAL:
             g_value_set_boolean(value, self->priv->critical);
@@ -211,10 +211,10 @@ umounter_logging_class_init(UMounterLoggingClass *cls) {
         G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
     g_object_class_install_property(gobject_class, PROP_DEBUG, pspec);
 
-    pspec = g_param_spec_boolean("info",
-        "If true info messages will be printed.", "Set info value.", FALSE, 
+    pspec = g_param_spec_boolean("message",
+        "If true MESSAGE messages will be printed.", "Set MESSAGE value.", FALSE, 
         G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
-    g_object_class_install_property(gobject_class, PROP_INFO, pspec);
+    g_object_class_install_property(gobject_class, PROP_MESSAGE, pspec);
 
     pspec = g_param_spec_boolean("critical",
         "If true critical messages will be printed.", "Set critical value.", 
@@ -281,9 +281,9 @@ umounter_logging_handler(const gchar *log_domain, GLogLevelFlags log_level,
             prefix = "-- CRITICAL -- ";
             write_message = self->priv->critical;
             break;
-        case G_LOG_LEVEL_INFO:
-            prefix = "-- INFO -- ";
-            write_message = self->priv->info;
+        case G_LOG_LEVEL_MESSAGE:
+            prefix = "-- MESSAGE -- ";
+            write_message = self->priv->message;
             break;
         default:
             g_print("-- UNKNOWN LOG LEVEL -- %s\n", message, NULL);
