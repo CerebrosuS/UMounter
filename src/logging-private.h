@@ -29,6 +29,7 @@ struct _UMounterLoggingPrivate {
     gboolean message;
     gboolean critical;
     gboolean error;
+    gboolean warning;
 };
 
 

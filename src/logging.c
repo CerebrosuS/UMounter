@@ -30,6 +30,7 @@ enum {
     PROP_MESSAGE,
     PROP_CRITICAL,
     PROP_ERROR,
+    PROP_WARNING,
     PROP_LOG_TO_FILE,
     PROP_LOG_FILE_PATH
 };
@@ -142,6 +143,9 @@ umounter_logging_set_property(GObject *gobject, guint property_id,
         case PROP_ERROR:
             self->priv->error = g_value_get_boolean(value);
             break;
+        case PROP_WARNING:
+            self->priv->warning = g_value_get_boolean(value);
+            break;
         case PROP_LOG_TO_FILE:
             self->priv->log_to_file = g_value_get_boolean(value);
             break;
@@ -152,7 +156,8 @@ umounter_logging_set_property(GObject *gobject, guint property_id,
             self->priv->log_file_path = g_value_dup_string(value);
             
             /* MESSAGErmate, that the log_file_name has changed. */
-            umounter_logging_log_file_path_changed(self);
+            if(NULL != self->priv->log_file_path)            
+                umounter_logging_log_file_path_changed(self);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
@@ -178,6 +183,9 @@ umounter_logging_get_property(GObject *gobject, guint property_id,
             break;
         case PROP_ERROR:
             g_value_set_boolean(value, self->priv->error);
+            break;
+        case PROP_WARNING:
+            self->priv->warning = g_value_get_boolean(value);
             break;
         case PROP_LOG_TO_FILE:
             g_value_set_boolean(value, self->priv->log_to_file);
@@ -226,17 +234,20 @@ umounter_logging_class_init(UMounterLoggingClass *cls) {
         G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
     g_object_class_install_property(gobject_class, PROP_ERROR, pspec);
 
+    pspec = g_param_spec_boolean("warning",
+        "If true warning messages will be printed.", "Set warning value.", 
+        FALSE, G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+    g_object_class_install_property(gobject_class, PROP_WARNING, pspec);
+
     pspec = g_param_spec_boolean("log_to_file",
         "If true all logging messages will be written to a file.", 
         "Set the log_to_file value.", FALSE,
         G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
     g_object_class_install_property(gobject_class, PROP_LOG_TO_FILE, pspec);
 
-    const gchar* log_file_path = g_build_path("/", g_get_home_dir(), 
-        ".umounter/umounter.log");
     pspec = g_param_spec_string("log_file_path",
         "Path of the logging file.", "Set the path of the logging file.",
-        log_file_path, G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+        NULL, G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
     g_object_class_install_property(gobject_class, PROP_LOG_FILE_PATH, pspec);
 
     /* Add private class... */
@@ -284,6 +295,10 @@ umounter_logging_handler(const gchar *log_domain, GLogLevelFlags log_level,
         case G_LOG_LEVEL_MESSAGE:
             prefix = "-- MESSAGE -- ";
             write_message = self->priv->message;
+            break;
+        case G_LOG_LEVEL_WARNING:
+            prefix = "-- WARNING -- ";
+            write_message = self->priv->warning;
             break;
         default:
             g_print("-- UNKNOWN LOG LEVEL -- %s\n", message, NULL);
@@ -338,7 +353,7 @@ umounter_logging_log_file_path_changed(UMounterLogging *self) {
     
     /* If getting the output stream failed... */
     if(NULL != error) {
-        g_print("-- ERROR -- FUNC(%s) Cannot open a stream for log file: %s",
+        g_print("-- ERROR -- FUNC(%s) Cannot open a stream for log file: %s\n",
             __FUNCTION__, self->priv->log_file_path);
 
         g_error_free(error);
@@ -376,7 +391,7 @@ umounter_logging_log_to_file(UMounterLogging *self, const gchar* message) {
 
     /* If writing to the output stream failed... */
     if(NULL != error) {
-        g_print("-- ERROR -- FUNC(%s) Cannot write message to log file: %s",
+        g_print("-- ERROR -- FUNC(%s) Cannot write message to log file: %s\n",
             __FUNCTION__, self->priv->log_file_path);
 
         g_error_free(error);

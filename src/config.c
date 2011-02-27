@@ -142,10 +142,8 @@ umounter_config_class_init(UMounterConfigClass *cls) {
 
     /* Set different properties. */
 
-    const gchar* rules_path = g_build_path("/", g_get_home_dir(), 
-        ".umounter/rules.d");
     pspec = g_param_spec_string("rules_path",
-        "The path of the rules files.", "Set rules path.", rules_path, 
+        "The path of the rules files.", "Set rules path.", NULL, 
         G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
     g_object_class_install_property(gobject_class, PROP_RULES_PATH, pspec);
 
@@ -165,7 +163,6 @@ umounter_config_init(UMounterConfig *self) {
     self->priv = UMOUNTER_CONFIG_GET_PRIVATE(self);
 
     self->priv->config_key_file = NULL;
-    self->priv->config_path = "~/.umounter/umounter.conf";
 }
 
 UMounterConfig*
@@ -216,9 +213,6 @@ umounter_config_read(UMounterConfig *self, const gchar *config_path,
         "automount", error);
     
     if(NULL != *error) {
-        g_warning("FUNC(%s) Cannot read the 'automount' config: %s",
-            __FUNCTION__, (*error)->message);
-    
         automount = TRUE;
 
         g_error_free(*error);
