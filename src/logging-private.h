@@ -20,8 +20,15 @@
 
 
 struct _UMounterLoggingPrivate {
+    GFile *log_file;
+    GOutputStream *out_stream;
+
+    gchar* log_file_path;    
+    gboolean log_to_file;
     gboolean debug;
     gboolean info;
+    gboolean critical;
+    gboolean error;
 };
 
 

@@ -70,18 +70,6 @@ UMounterAutomounter*
 umounter_automounter_new(UMounterConfig *config, 
     UMounterRulesParser *rulesparser);
 
-/* Running the automounter... into the main loop. */
-gboolean 
-umounter_automounter_run(UMounterAutomounter *self);
-
-/* Running the automounter... into the main loop, but in a own thread, so the
-calling function can go one. NOTE: If u close the application, this thread
-will be closed too. It is a better way to stop the UMounterAutomounter with
-the right function, so it can clean all things that he change on the file 
-system. */
-gboolean
-umounter_automounter_run_as_thread(UMounterAutomounter *self);
-
 ////////////////////////////////////////////////////////////////////////////////
 
 

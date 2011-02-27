@@ -67,9 +67,6 @@ static void
 umounter_automounter_volume_mount_ready(GObject *source_object, 
     GAsyncResult *result, gpointer user_data);
 
-static gpointer
-umounter_automounter_thread_func(gpointer data);
-
 ////////////////////////////////////////////////////////////////////////////////
 
 /* Macro for implementing the _get_type function and and defining a parent
@@ -78,11 +75,8 @@ G_DEFINE_TYPE(UMounterAutomounter, umounter_automounter, G_TYPE_OBJECT);
 
 static void
 umounter_automounter_dispose(GObject *gobject) {
-    g_message(__FUNCTION__);
-
     UMounterAutomounter *self = UMOUNTER_AUTOMOUNTER(gobject);
 
-     
     /* In dispose, you are supposed to free all types referenced from this
     object which might themselves hold a reference to self. Generally,
     the most simple solution is to unref all members on which you own a 
@@ -204,8 +198,7 @@ umounter_automounter_class_init(UMounterAutomounterClass *cls) {
 static void
 umounter_automounter_init(UMounterAutomounter *self) {
     self->priv = UMOUNTER_AUTOMOUNTER_GET_PRIVATE(self);
-    
-    self->priv->main_loop = g_main_loop_new(NULL, FALSE);
+
     self->priv->volumes = NULL;
     self->priv->config = NULL;
     self->priv->rulesparser = NULL;
@@ -358,32 +351,5 @@ umounter_automounter_new(UMounterConfig *config,
         "config", config, "rulesparser", rulesparser, NULL);
 
     return automounter;
-}
-
-gboolean
-umounter_automounter_run(UMounterAutomounter *self) {
-    g_return_val_if_fail(self != NULL, FALSE);
-
-    g_main_loop_run(self->priv->main_loop);
-
-    return TRUE;
-}
-
-gboolean
-umounter_automounter_run_as_thread(UMounterAutomounter *self) {
-    g_return_val_if_fail(self != NULL, FALSE);
-
-    g_thread_init(NULL);
-    GThread *thread = g_thread_create(umounter_automounter_thread_func, self, 
-        TRUE, NULL);
-
-    return TRUE;
-}
-
-gpointer
-umounter_automounter_thread_func(gpointer data) {
-    g_return_val_if_fail(UMOUNTER_IS_AUTOMOUNTER(data), NULL);
-
-    g_main_loop_run(((UMounterAutomounter*)data)->priv->main_loop);
 }
 

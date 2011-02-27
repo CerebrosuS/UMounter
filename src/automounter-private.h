@@ -20,7 +20,6 @@
 
 
 struct _UMounterAutomounterPrivate {
-    GMainLoop *main_loop;
     UMounterConfig *config;
     UMounterVolumes *volumes;
     UMounterRulesParser *rulesparser;

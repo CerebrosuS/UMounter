@@ -18,6 +18,8 @@
 #include "logging.h"
 #include "logging-private.h"
 
+#include <string.h>
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -25,7 +27,11 @@ enum {
     PROP_0,
 
     PROP_DEBUG,
-    PROP_INFO
+    PROP_INFO,
+    PROP_CRITICAL,
+    PROP_ERROR,
+    PROP_LOG_TO_FILE,
+    PROP_LOG_FILE_PATH
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -56,8 +62,14 @@ umounter_logging_get_property(GObject *gobject, guint property_id,
     GValue *value, GParamSpec *pspec);
 
 static void 
-logging_handler(const gchar *log_domain, GLogLevelFlags log_level,
+umounter_logging_handler(const gchar *log_domain, GLogLevelFlags log_level,
     const gchar *message, gpointer user_data);
+
+static void
+umounter_logging_log_to_file(UMounterLogging *self, const gchar* message);
+
+static void
+umounter_logging_log_file_path_changed(UMounterLogging *self);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -67,14 +79,18 @@ G_DEFINE_TYPE(UMounterLogging, umounter_logging, G_TYPE_OBJECT);
 
 static void
 umounter_logging_dispose(GObject *gobject) {
-    g_message(__FUNCTION__);
-
     UMounterLogging *self = UMOUNTER_LOGGING(gobject);
      
     /* In dispose, you are supposed to free all types referenced from this
     object which might themselves hold a reference to self. Generally,
     the most simple solution is to unref all members on which you own a 
     reference. */
+
+    /* Delete the output stream object of the logging file, if it exist. */
+    if(NULL != self->priv->out_stream) {
+        g_output_stream_close(self->priv->out_stream, NULL, NULL);
+        g_object_unref(self->priv->out_stream);
+    }
 
     /* Chain up to the parent class. */
     G_OBJECT_CLASS(umounter_logging_parent_class)->dispose(gobject);
@@ -97,9 +113,14 @@ umounter_logging_constructed(GObject *gobject) {
     UMounterLogging *self = UMOUNTER_LOGGING(gobject);
 
     /* Set the default logging handler. */
-    g_log_set_handler (NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_ERROR | 
-        G_LOG_LEVEL_DEBUG | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, 
-        logging_handler, self);
+    g_log_set_handler(NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_ERROR | 
+        G_LOG_LEVEL_DEBUG | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_MESSAGE | 
+        G_LOG_LEVEL_INFO | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, 
+        umounter_logging_handler, self);
+    g_log_set_handler("GLib", G_LOG_LEVEL_WARNING | G_LOG_LEVEL_ERROR | 
+        G_LOG_LEVEL_DEBUG | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_MESSAGE | 
+        G_LOG_LEVEL_INFO | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, 
+        umounter_logging_handler, self);
 }
 
 static void
@@ -114,6 +135,24 @@ umounter_logging_set_property(GObject *gobject, guint property_id,
             break;
         case PROP_INFO:
             self->priv->info = g_value_get_boolean(value);
+            break;
+        case PROP_CRITICAL:
+            self->priv->critical = g_value_get_boolean(value);
+            break;
+        case PROP_ERROR:
+            self->priv->error = g_value_get_boolean(value);
+            break;
+        case PROP_LOG_TO_FILE:
+            self->priv->log_to_file = g_value_get_boolean(value);
+            break;
+        case PROP_LOG_FILE_PATH:
+            if(NULL != self->priv->log_file_path)
+                g_free(self->priv->log_file_path);
+
+            self->priv->log_file_path = g_value_dup_string(value);
+            
+            /* Informate, that the log_file_name has changed. */
+            umounter_logging_log_file_path_changed(self);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
@@ -133,6 +172,18 @@ umounter_logging_get_property(GObject *gobject, guint property_id,
             break;
         case PROP_INFO:
             g_value_set_boolean(value, self->priv->info);
+            break;
+        case PROP_CRITICAL:
+            g_value_set_boolean(value, self->priv->critical);
+            break;
+        case PROP_ERROR:
+            g_value_set_boolean(value, self->priv->error);
+            break;
+        case PROP_LOG_TO_FILE:
+            g_value_set_boolean(value, self->priv->log_to_file);
+            break;
+        case PROP_LOG_FILE_PATH:
+            g_value_set_string(value, self->priv->log_file_path);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, property_id, pspec);
@@ -165,6 +216,29 @@ umounter_logging_class_init(UMounterLoggingClass *cls) {
         G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
     g_object_class_install_property(gobject_class, PROP_INFO, pspec);
 
+    pspec = g_param_spec_boolean("critical",
+        "If true critical messages will be printed.", "Set critical value.", 
+        FALSE, G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+    g_object_class_install_property(gobject_class, PROP_CRITICAL, pspec);
+
+    pspec = g_param_spec_boolean("error",
+        "If true error messages will be printed.", "Set error value.", FALSE, 
+        G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+    g_object_class_install_property(gobject_class, PROP_ERROR, pspec);
+
+    pspec = g_param_spec_boolean("log_to_file",
+        "If true all logging messages will be written to a file.", 
+        "Set the log_to_file value.", FALSE,
+        G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+    g_object_class_install_property(gobject_class, PROP_LOG_TO_FILE, pspec);
+
+    const gchar* log_file_path = g_build_path("/", g_get_home_dir(), 
+        ".umounter/umounter.log");
+    pspec = g_param_spec_string("log_file_path",
+        "Path of the logging file.", "Set the path of the logging file.",
+        log_file_path, G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+    g_object_class_install_property(gobject_class, PROP_LOG_FILE_PATH, pspec);
+
     /* Add private class... */
 
     g_type_class_add_private(cls, sizeof(UMounterLoggingPrivate));
@@ -173,30 +247,140 @@ umounter_logging_class_init(UMounterLoggingClass *cls) {
 static void
 umounter_logging_init(UMounterLogging *self) {
     self->priv = UMOUNTER_LOGGING_GET_PRIVATE(self);
+    self->priv->log_file = NULL;
+    self->priv->out_stream = NULL;
 }
 
 static void 
-logging_handler(const gchar *log_domain, GLogLevelFlags log_level,
+umounter_logging_handler(const gchar *log_domain, GLogLevelFlags log_level,
     const gchar *message, gpointer user_data) {
 
     g_return_if_fail(UMOUNTER_IS_LOGGING(user_data));
 
     UMounterLogging *self = UMOUNTER_LOGGING(user_data);
+    
+    gboolean write_message;
+    gchar *full_message;
+    gchar *prefix;
 
+
+    full_message = NULL;
+    write_message = FALSE;
 
     /* Go through all the log levels. */
     switch(log_level) {
         case G_LOG_LEVEL_DEBUG:
-            if(TRUE == self->priv->debug)
-                g_print("-- DEBUG -- %s\n", message);
+            prefix = "-- DEBUG -- ";
+            write_message = self->priv->debug;
             break;
         case G_LOG_LEVEL_ERROR:
-            g_print("-- ERROR -- %s\n", message);
+            prefix = "-- ERROR -- ";
+            write_message = self->priv->error;
+            break;
+        case G_LOG_LEVEL_CRITICAL:
+            prefix = "-- CRITICAL -- ";
+            write_message = self->priv->critical;
+            break;
+        case G_LOG_LEVEL_INFO:
+            prefix = "-- INFO -- ";
+            write_message = self->priv->info;
             break;
         default:
-            g_print("-- UNKNOWN LOG LEVEL -- %s\n", message);
+            g_print("-- UNKNOWN LOG LEVEL -- %s\n", message, NULL);
             break;
-    }        
+    }
+
+    if(TRUE == write_message) {
+        full_message = g_strconcat(prefix, message, "\n", NULL);
+        
+        /* Now go on and log the message to a file, if this is enabled in the config
+        and a directory is given. */
+        if(TRUE == self->priv->log_to_file)
+            umounter_logging_log_to_file(self, full_message);
+        else
+            g_print("%s", full_message);
+
+        g_free(full_message);
+    }
+}
+
+static void
+umounter_logging_log_file_path_changed(UMounterLogging *self) {
+    
+    g_return_if_fail(NULL != self);
+    g_return_if_fail(NULL != self->priv->log_file_path);
+
+    GError *error;
+    GFile *log_file;
+    GOutputStream *out_stream;
+
+    
+    /* Init several local values from the priv object. */
+    log_file = self->priv->log_file;
+    out_stream = self->priv->out_stream;
+
+    error = NULL;
+
+    /* Clean memory, if some objects already exist. */
+
+    if(NULL != log_file)
+        g_object_unref(log_file);
+
+    if(NULL != out_stream)
+        g_object_unref(out_stream);
+
+    /* Create the file object. */
+    log_file = g_file_new_for_path(self->priv->log_file_path);
+
+    /* Create the output stream. */
+    out_stream = G_OUTPUT_STREAM(g_file_replace(log_file, NULL, FALSE, 
+        G_FILE_CREATE_PRIVATE, NULL, &error));
+    
+    /* If getting the output stream failed... */
+    if(NULL != error) {
+        g_print("-- ERROR -- FUNC(%s) Cannot open a stream for log file: %s",
+            __FUNCTION__, self->priv->log_file_path);
+
+        g_error_free(error);
+
+        return;
+    }
+
+    self->priv->log_file = log_file;
+    self->priv->out_stream = out_stream;
+}
+
+static void
+umounter_logging_log_to_file(UMounterLogging *self, const gchar* message) {    
+
+    g_return_if_fail(NULL != self->priv->out_stream);
+    g_return_if_fail(NULL != message);
+
+    GError *error;
+    GOutputStream *out_stream;
+    
+    gsize bytes_written;
+
+
+    /* Init local values from pivate. */
+    out_stream = self->priv->out_stream;
+
+    /* Init error to NULL. */
+    error = NULL;
+
+    /* Write the message data to the stream. */
+    
+    g_output_stream_write_all(out_stream, message, strlen(message), 
+        &bytes_written, NULL, &error);
+    g_output_stream_flush(out_stream, NULL, &error);
+
+    /* If writing to the output stream failed... */
+    if(NULL != error) {
+        g_print("-- ERROR -- FUNC(%s) Cannot write message to log file: %s",
+            __FUNCTION__, self->priv->log_file_path);
+
+        g_error_free(error);
+    }
 }
 
 UMounterLogging*
