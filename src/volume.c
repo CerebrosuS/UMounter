@@ -240,3 +240,11 @@ umounter_volume_add_command(UMounterVolume *self, gchar *command) {
     return TRUE;
 }
 
+gboolean
+umounter_volume_add_command_on_mount(UMounterVolume *self, gchar *command) {
+    self->priv->command_on_mount_list = g_list_append(
+        self->priv->command_on_mount_list, command);
+
+    return TRUE;
+}
+

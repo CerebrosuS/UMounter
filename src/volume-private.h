@@ -21,6 +21,7 @@
 
 struct _UMounterVolumePrivate {
     GList *command_list;
+    GList *command_on_mount_list;
 
     gchar *uuid;
     gchar *name;

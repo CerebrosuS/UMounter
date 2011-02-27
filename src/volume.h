@@ -68,6 +68,10 @@ umounter_volume_new(void);
 gboolean
 umounter_volume_add_command(UMounterVolume *self, gchar *command);
 
+/* Adding a new command to the command_on_mount_list. */
+gboolean
+umounter_volume_add_command_on_mount(UMounterVolume *self, gchar *command);
+
 ////////////////////////////////////////////////////////////////////////////////
 
 

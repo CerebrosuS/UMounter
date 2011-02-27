@@ -218,7 +218,7 @@ umounter_rulesparser_parse_rule(UMounterRulesParser *self, xmlDoc *doc, xmlNode
             umounter_volume_add_command(volume, xmlNodeListGetString(doc, 
                 current_node->xmlChildrenNode, 1));
         } else if(0 == g_strcmp0(current_node->name, "command_on_mount")) {
-            umounter_volume_add_command(colume, xmlNodeListGetString(doc,
+            umounter_volume_add_command(volume, xmlNodeListGetString(doc,
                 current_node->xmlChildrenNode, 1));
         }
 
