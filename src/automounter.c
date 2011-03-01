@@ -67,6 +67,18 @@ static void
 umounter_automounter_volume_mount_ready(GObject *source_object, 
     GAsyncResult *result, gpointer user_data);
 
+static gboolean
+umounter_automounter_run_commands(UMounterAutomounter *self, UMounterVolume 
+    *volume, gboolean on_mount, GError **error);
+
+static gboolean
+umounter_automounter_volume_mount(UMounterAutomounter *self, GVolume *volume,
+UMounterVolume *u_volume, UMounterVolume *all_u_volume, GError **error);
+
+static gchar*
+umounter_automounter_solve_command(UMounterAutomounter *self, GVolume *volume, 
+    const gchar *command);
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /* Macro for implementing the _get_type function and and defining a parent
@@ -213,21 +225,65 @@ static void
 umounter_automounter_volume_mount_ready(GObject *source_object, 
     GAsyncResult *result, gpointer user_data) {
 
+    g_return_if_fail(NULL != user_data);
+    g_return_if_fail(TRUE == UMOUNTER_IS_AUTOMOUNTER(user_data));
+
+    UMounterAutomounter *self;
+    UMounterVolume *tmp_volume;
+    UMounterVolume *all_volume;
     GError *error;
-        
-    gboolean mount_ok;
+
+    gboolean mounted;
+    gchar *device;
 
 
+    /* Get the umounter automounter object from a gpointer. */
+    self = UMOUNTER_AUTOMOUNTER(user_data);
+
+    /* Init device information string. */
+    device = g_volume_get_identifier(G_VOLUME(source_object), 
+        G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
+
+    /* Try to get a volume with the given name or uuid. */
+    tmp_volume = umounter_volumes_exist_device(self->priv->volumes, device);
+    
+    /* Also try to get the all volume. */
+    all_volume = umounter_volumes_exist_name(self->priv->volumes, "*");
+
+    /* We should end all and print a message if we don't find a volume. */
+    if(NULL == tmp_volume) {
+        g_error("Can't find a volume, that was mounted before. There must a "
+            "volume for that, otherwise something went wrong.");
+
+        return;
+    }
+
+    /* Reset the error pointer. */
     error = NULL;
-    mount_ok = g_volume_mount_finish((GVolume*) source_object, result, 
+
+    /* Test if mounting was ok... */
+    mounted = g_volume_mount_finish((GVolume*) source_object, result, 
         &error);
 
-    if(FALSE == mount_ok) {
-        g_error(error->message);
-        g_error_free(error);
+    if(FALSE == mounted) {
+        g_error("Mounting the volume went wrong: %s", error->message);
+        g_clear_error(&error);
     } else {
         g_message(" Ok!\n\n");
+
+        g_object_set(G_OBJECT(tmp_volume), "is_mounted", TRUE, NULL);
     }
+
+    umounter_automounter_run_commands(self, tmp_volume, FALSE, &error);
+
+    if(NULL != all_volume)
+        umounter_automounter_run_commands(self, all_volume, FALSE, &error);
+
+    /* When recieving an error, informate about. */
+    if(NULL != error) {
+        g_error("Error while running one or more commands: %s", error->message);
+        g_clear_error(&error);
+    }        
 }
 
 static void 
@@ -240,16 +296,10 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     UMounterAutomounter *self;
     UMounterVolume *tmp_volume;
     UMounterVolume *all_volume;
-    GMountOperation *mount_operation;
-    GList *all_command_list;
-    GList *command_list;
     GError *error;
 
     gchar *device, *name, *uuid;
-    gboolean ignore_mount;
-    gboolean all_ignore_mount;
-    gboolean automount;
-    
+
 
     /* Get the umounter automounter object from a gpointer. */
     self = UMOUNTER_AUTOMOUNTER(user_data);
@@ -260,10 +310,6 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     name = g_volume_get_name(volume);
     uuid = g_volume_get_uuid(volume);
 
-    g_debug("FUNC(%s) Volume name: %s", __FUNCTION__, name);
-    g_debug("FUNC(%s) Volume uuid: %s", __FUNCTION__, uuid);
-    g_debug("FUNC(%s) Volume device: %s", __FUNCTION__, device);
-
     /* Try to get a volume with the given name or uuid. */
     tmp_volume = umounter_volumes_exist_volume_name_uuid(self->priv->volumes, 
         name, uuid);
@@ -271,9 +317,18 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     /* Also try to get the all volume. */
     all_volume = umounter_volumes_exist_name(self->priv->volumes, "*");
 
-    /* If can't find a volume with the given values, create a new one. */
-    if(NULL == tmp_volume) 
+    /* If can't find a volume with the given values, create a new one and add it
+    to the volumes. */
+    if(NULL == tmp_volume) {
         tmp_volume = umounter_volume_new();
+
+        /* Set the given values to the volume. */
+        g_object_set(G_OBJECT(tmp_volume), "name", name, "uuid", uuid,
+            "device", device, NULL);
+
+        /* Now add the volume to the volumes list. */
+        umounter_volumes_add(self->priv->volumes, tmp_volume);
+    }
 
     /* Set the given values to the volume. */
     g_object_set(G_OBJECT(tmp_volume), "name", name, "uuid", uuid,
@@ -284,85 +339,28 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     g_message("Name: %s", name);
     g_message("UUID: %s", uuid);
 
-
-    /* Automounting, if it should and can... */
-    gboolean can_mount = g_volume_can_mount(volume);   
-
-    /* Get the ignore_mount from the all_volume. */
-    all_ignore_mount = FALSE;
-    if(NULL != all_volume)
-        g_object_get(G_OBJECT(all_volume), "ignore_mount", &all_ignore_mount,
-            NULL);
-
-    /* Get the ignore_mount from the tmp_volume. */
-    g_object_get(G_OBJECT(tmp_volume), "ignore_mount", &ignore_mount, NULL);
-    g_object_get(G_OBJECT(self->priv->config), "automount", 
-        &automount, NULL);
-
-    /* If the volume should be mounted. Lets do it... */
-    if(FALSE == ignore_mount && TRUE == automount && 
-        FALSE == all_ignore_mount) {
-
-        if(can_mount) {
-            g_message("Mount: ...");
-
-            /* Create a mounting operation and mount it... */
-            mount_operation = g_mount_operation_new();
-            g_mount_operation_set_anonymous(mount_operation, TRUE);
-
-            g_volume_mount(volume, G_MOUNT_MOUNT_NONE, NULL, NULL, 
-                umounter_automounter_volume_mount_ready, self);
-        }
-    } else {
-        g_message("Mount: ... Ignore!");
-    }
-
     /* Running special commands if some are defined. */
     error = NULL;
 
-    /* Get the commands from the added volume and... */
-    g_object_get(G_OBJECT(tmp_volume), "command_list", &command_list, NULL);
+    umounter_automounter_run_commands(self, tmp_volume, FALSE, &error);
 
-    /* ...also from the all volume. */
     if(NULL != all_volume)
-        g_object_get(G_OBJECT(all_volume), "command_list", &all_command_list,
-            NULL);
+        umounter_automounter_run_commands(self, all_volume, FALSE, &error);
 
-    if(NULL != command_list || NULL != all_command_list) {
-        gint i;
-        gint list_length;
+    /* When recieving an error, informate about. */
+    if(NULL != error) {
+        g_error("Error while running one or more commands: %s", error->message);
+        g_clear_error(&error);
+    }
 
-        list_length = g_list_length(command_list);
-        for(i = 0; i < list_length; i++) {
-            const gchar* command = g_list_nth_data(command_list, i);
+    /* Try to mount the volume. */
+    umounter_automounter_volume_mount(self, volume, tmp_volume, all_volume, &
+        error);
 
-            g_debug("FUNC(%s) Running a user defined command: %s", __FUNCTION__,
-                command);
-            
-            /* If the command is NULL, nothing will be executed. */
-            if(NULL != command) {
-                g_message("Running command: %s", command);
-                g_spawn_command_line_async(command, &error);
-            }
-        }
-        
-        list_length = 0;
-        if(NULL != all_command_list)
-            list_length = g_list_length(all_command_list);
-
-        for(i = 0; i < list_length; i++) {
-            const gchar* command = g_list_nth_data(all_command_list, i);
-
-            g_debug("FUNC(%s) Running a user defined all command: %s", 
-                __FUNCTION__, command);
-            
-            /* If the command is NULL, nothing will be executed. */
-            if(NULL != command) {
-                g_message("Running all command: %s", command);
-                g_spawn_command_line_async(command, &error);
-            }
-        }
-
+    /* Maybe the mounting failed with an error... */
+    if(NULL != error) {
+        g_error("Error mounting the volume: %s", error->message);
+        g_clear_error(&error);
     }
 
     /* Cleaning... */
@@ -412,6 +410,110 @@ umounter_automounter_volume_removed(GVolumeMonitor *volume_monitor,
 
     if(NULL != uuid)
         g_free(uuid);
+}
+
+static gboolean
+umounter_automounter_volume_mount(UMounterAutomounter *self, GVolume *volume,
+UMounterVolume *u_volume, UMounterVolume *all_u_volume, GError **error) {
+
+    g_return_val_if_fail(NULL != self, FALSE);
+    g_return_val_if_fail(NULL != volume, FALSE);
+    g_return_val_if_fail(NULL != all_u_volume, FALSE);
+    g_return_val_if_fail(NULL == *error, FALSE);
+
+    GMountOperation *mount_operation;
+
+    gboolean ignore_mount, all_ignore_mount, automount;
+
+    
+    /* Init local values... */
+    
+    g_object_get(G_OBJECT(self->priv->config), "automount", &automount, NULL);
+    g_object_get(G_OBJECT(u_volume), "ignore_mount", &ignore_mount, NULL);
+
+    /* When setting the all ignore value, the all_u_volume could be NULL. */
+    if(NULL != all_u_volume)
+        g_object_get(G_OBJECT(all_u_volume), "ignore_mount", &all_ignore_mount,
+            NULL);
+    else
+        all_ignore_mount = FALSE;
+
+    /* Now lets see if we schould mount... */
+    if(TRUE != ignore_mount && TRUE != all_ignore_mount && TRUE != automount &&
+        TRUE == g_volume_can_mount(volume)) {
+
+        g_message("Mount: ...");
+
+        /* Create a mounting operation and mount it... */
+        mount_operation = g_mount_operation_new();
+        g_mount_operation_set_anonymous(mount_operation, TRUE);
+
+        g_volume_mount(volume, G_MOUNT_MOUNT_NONE, NULL, NULL, 
+            umounter_automounter_volume_mount_ready, self);
+    }
+
+    return TRUE;
+}
+
+static gboolean
+umounter_automounter_run_commands(UMounterAutomounter *self, 
+    UMounterVolume *volume, gboolean on_mount, GError **error) {
+
+    g_return_val_if_fail(NULL != volume, FALSE);
+    g_return_val_if_fail(NULL == *error, FALSE);
+
+    GList *commands;
+
+    gint commands_count, i;
+    const gchar* command;
+    const gchar* command_list_name;
+
+
+    /* Init local variables... */
+    if(TRUE == on_mount)
+        command_list_name = "command_on_mount_list";
+    else
+        command_list_name = "command_list";
+
+    g_object_get(G_OBJECT(volume), command_list_name, &commands, NULL);
+
+    /* If we get NULL back, there are no commands, but this is no fail, so
+    we will return FALSE but won't init error. */
+    if(NULL == commands)
+        return FALSE;
+
+    /* Get the count of the commands... */
+    commands_count = g_list_length(commands);
+
+    /* ...and go through all of them with a loop. */
+    for(i = 0; i < commands_count; i++) {
+
+        /* Get the command from the list... */
+        command = g_list_nth_data(commands, i);
+        
+        /* If the command is NULL, nothing will be executed. */
+        if(NULL != command) {
+            g_message("Running command: %s", command);
+            g_spawn_command_line_async(command, error);
+        }
+    }
+
+    return TRUE;
+}
+
+static gchar*
+umounter_automounter_solve_command(UMounterAutomounter *self, GVolume *volume, 
+    const gchar *command) {
+    
+    g_return_val_if_fail(NULL != self, NULL);
+    g_return_val_if_fail(NULL != command, NULL);
+    g_return_val_if_fail(NULL != volume, NULL);
+
+    gchar *new_command;
+    gint command_length, new_command_length;
+
+    
+
 }
 
 UMounterAutomounter*

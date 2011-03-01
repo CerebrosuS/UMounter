@@ -7,7 +7,7 @@ include_directories(${GLIB2_INCLUDE_DIRS})
 include_directories(${XML2_INCLUDE_DIRS})
 
 set(SOURCES main.c automounter.c config.c volume.c volumes.c rulesparser.c
-    logging.c)
+    logging.c string.c)
 add_executable(umounter ${SOURCES})
 
 target_link_libraries(umounter ${GLIB2_LIBRARIES})
