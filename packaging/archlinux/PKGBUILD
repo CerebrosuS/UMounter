@@ -1,0 +1,39 @@
+# $Id: PKGBUILD,v 1.12 2003/11/06 08:26:13 dorphell Exp $
+# Maintainer: Christian Krippendorf <Kontakt-Programming@CerebrosuS.de>
+# Contributor: Christian Krippendorf <Kontakt-Programming@CerebrosuS.de>
+pkgname=umounter
+pkgver=20110227
+pkgrel=1
+pkgdesc="Extended automounting for storage devices with gio."
+arch=(i686 x86_64)
+url="https://github.com/CerebrosuS/UMounter"
+license=('GPLv3')
+depends=('libxml2' 'glib2')
+makedepends=('cmake' 'git' 'make')
+
+_gitroot="git://github.com/CerebrosuS/UMounter.git"
+_gitname="umounter"
+
+build() {
+  cd "$srcdir"
+  msg "Connecting to GIT server...."
+
+  if [ -d $_gitname ] ; then
+    cd $_gitname && git pull origin
+    msg "The local files are updated."
+  else
+    git clone $_gitroot $_gitname
+  fi
+
+  msg "GIT checkout done or server timeout"
+  msg "Starting make..."
+
+  rm -rf "$srcdir/$_gitname-build"
+  git clone "$srcdir/$_gitname" "$srcdir/$_gitname-build"
+  cd "$srcdir/$_gitname-build"
+
+  cmake -DCMAKE_INSTALL_PREFIX:STRING=/usr
+  make
+  make DESTDIR=$pkgdir install
+}
+
