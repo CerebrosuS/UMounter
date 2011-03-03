@@ -54,11 +54,9 @@ gint main(gint argc, gchar **argv) {
     
     gchar* config_file;
     gchar* log_file_path;
-    gboolean error0;
-    gboolean critical;
+    gboolean verbose;
     gboolean message;
     gboolean debug;
-    gboolean warning;
     gboolean log_to_file;
     
 
@@ -77,9 +75,7 @@ gint main(gint argc, gchar **argv) {
     log_file_path = NULL;
     debug = FALSE;
     message = FALSE;
-    error0 = FALSE;
-    critical = FALSE;
-    warning = FALSE;
+    verbose = FALSE;
     log_to_file = FALSE;
     GOptionEntry option_entries[] = {
         {"config", 0, 0, G_OPTION_ARG_STRING, &config_file,
@@ -90,12 +86,8 @@ gint main(gint argc, gchar **argv) {
             "Show debug messages.", NULL},
         {"message", 'm', 0, G_OPTION_ARG_NONE, &message,
             "Show info messages.", NULL},
-        {"error", 'e', 0, G_OPTION_ARG_NONE, &error0,
-            "Show error messages.", NULL},
-        {"critical", 'c', 0, G_OPTION_ARG_NONE, &critical,
-            "Show critical messages.", NULL},
-        {"warning", 'w', 0, G_OPTION_ARG_NONE, &warning,
-            "Show warning messages.", NULL},
+        {"verbose", 'v', 0, G_OPTION_ARG_NONE, &verbose,
+            "Show all messages.", NULL},
         {"log-to-file", 'f', 0, G_OPTION_ARG_NONE, &log_to_file,
             "If true logging goes to a file.", NULL},
         {NULL}    
@@ -118,8 +110,8 @@ gint main(gint argc, gchar **argv) {
 
     logging = umounter_logging_new();
     g_object_set(G_OBJECT(logging), "debug", debug, "message", message, 
-        "log_to_file", log_to_file, "log_file_path", log_file_path, "error",
-        error0, "critical", critical, "warning", warning, NULL);
+        "log_to_file", log_to_file, "log_file_path", log_file_path, "verbose",
+        verbose, NULL);
 
     /* Get configuration... */
     UMounterConfig *config = umounter_config_new();
@@ -127,16 +119,11 @@ gint main(gint argc, gchar **argv) {
     if(NULL == config_file) {
         config_file = g_build_path("/", g_get_home_dir(), 
         ".umounter/umounter.conf");
+    }
 
-        if(!umounter_config_read(config, config_file, &error)) {
-            g_message("Can't read configuration: %s", error->message);
-            g_error_free(error);
-        }
-    } else {
-        if(!umounter_config_read(config, config_file, &error)) {
+    if(!umounter_config_read(config, config_file, &error)) {
             g_warning("Can't read configuration: %s", error->message);
             g_error_free(error);
-        }
     }
 
     /* Create rulesparser... */

@@ -27,9 +27,7 @@ struct _UMounterLoggingPrivate {
     gboolean log_to_file;
     gboolean debug;
     gboolean message;
-    gboolean critical;
-    gboolean error;
-    gboolean warning;
+    gboolean verbose;
 };
 
 

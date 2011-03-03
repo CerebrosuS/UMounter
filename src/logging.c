@@ -28,9 +28,7 @@ enum {
 
     PROP_DEBUG,
     PROP_MESSAGE,
-    PROP_CRITICAL,
-    PROP_ERROR,
-    PROP_WARNING,
+    PROP_VERBOSE,
     PROP_LOG_TO_FILE,
     PROP_LOG_FILE_PATH
 };
@@ -137,14 +135,8 @@ umounter_logging_set_property(GObject *gobject, guint property_id,
         case PROP_MESSAGE:
             self->priv->message = g_value_get_boolean(value);
             break;
-        case PROP_CRITICAL:
-            self->priv->critical = g_value_get_boolean(value);
-            break;
-        case PROP_ERROR:
-            self->priv->error = g_value_get_boolean(value);
-            break;
-        case PROP_WARNING:
-            self->priv->warning = g_value_get_boolean(value);
+        case PROP_VERBOSE:
+            self->priv->verbose = g_value_get_boolean(value);
             break;
         case PROP_LOG_TO_FILE:
             self->priv->log_to_file = g_value_get_boolean(value);
@@ -178,14 +170,8 @@ umounter_logging_get_property(GObject *gobject, guint property_id,
         case PROP_MESSAGE:
             g_value_set_boolean(value, self->priv->message);
             break;
-        case PROP_CRITICAL:
-            g_value_set_boolean(value, self->priv->critical);
-            break;
-        case PROP_ERROR:
-            g_value_set_boolean(value, self->priv->error);
-            break;
-        case PROP_WARNING:
-            self->priv->warning = g_value_get_boolean(value);
+        case PROP_VERBOSE:
+            g_value_set_boolean(value, self->priv->verbose);
             break;
         case PROP_LOG_TO_FILE:
             g_value_set_boolean(value, self->priv->log_to_file);
@@ -224,20 +210,10 @@ umounter_logging_class_init(UMounterLoggingClass *cls) {
         G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
     g_object_class_install_property(gobject_class, PROP_MESSAGE, pspec);
 
-    pspec = g_param_spec_boolean("critical",
-        "If true critical messages will be printed.", "Set critical value.", 
+    pspec = g_param_spec_boolean("verbose",
+        "If true verbose messages will be printed.", "Set verbose value.", 
         FALSE, G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
-    g_object_class_install_property(gobject_class, PROP_CRITICAL, pspec);
-
-    pspec = g_param_spec_boolean("error",
-        "If true error messages will be printed.", "Set error value.", FALSE, 
-        G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
-    g_object_class_install_property(gobject_class, PROP_ERROR, pspec);
-
-    pspec = g_param_spec_boolean("warning",
-        "If true warning messages will be printed.", "Set warning value.", 
-        FALSE, G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
-    g_object_class_install_property(gobject_class, PROP_WARNING, pspec);
+    g_object_class_install_property(gobject_class, PROP_VERBOSE, pspec);
 
     pspec = g_param_spec_boolean("log_to_file",
         "If true all logging messages will be written to a file.", 
@@ -284,39 +260,34 @@ umounter_logging_handler(const gchar *log_domain, GLogLevelFlags log_level,
             prefix = "-- DEBUG -- ";
             write_message = self->priv->debug;
             break;
-        case G_LOG_LEVEL_ERROR:
-            prefix = "-- ERROR -- ";
-            write_message = self->priv->error;
-            break;
-        case G_LOG_LEVEL_CRITICAL:
-            prefix = "-- CRITICAL -- ";
-            write_message = self->priv->critical;
-            break;
         case G_LOG_LEVEL_MESSAGE:
             prefix = "-- MESSAGE -- ";
             write_message = self->priv->message;
             break;
+        case G_LOG_LEVEL_ERROR:
+            prefix = "-- ERROR -- ";
+            break;
+        case G_LOG_LEVEL_CRITICAL:
+            prefix = "-- CRITICAL -- ";
+            break;
         case G_LOG_LEVEL_WARNING:
-            prefix = "-- WARNING -- ";
-            write_message = self->priv->warning;
+            prefix = "-- WARNING* -- ";
             break;
         default:
             g_print("-- UNKNOWN LOG LEVEL -- %s\n", message, NULL);
             break;
     }
 
-    if(TRUE == write_message) {
+    if(TRUE == write_message || TRUE == self->priv->verbose) {
         full_message = g_strconcat(prefix, message, "\n", NULL);
-        
-        /* Now go on and log the message to a file, if this is enabled in the config
-        and a directory is given. */
-        if(TRUE == self->priv->log_to_file)
-            umounter_logging_log_to_file(self, full_message);
-        else
-            g_print("%s", full_message);
-
+        g_print("%s", full_message);
         g_free(full_message);
     }
+
+    /* Now go on and log the message to a file, if this is enabled in the config
+    and a directory is given. */
+    if(TRUE == self->priv->log_to_file)
+        umounter_logging_log_to_file(self, full_message);
 }
 
 static void
