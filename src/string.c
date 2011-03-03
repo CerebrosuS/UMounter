@@ -54,5 +54,34 @@ gchar*
 umounter_string_replace(const gchar *source, const gchar *search, 
     const gchar *replace) {
 
+    g_return_val_if_fail(NULL != source, NULL);
+    g_return_val_if_fail(NULL != search, NULL);
+    g_return_val_if_fail(NULL != replace, NULL);
+
+    gchar *tmp_string, *return_string;
+
+
+    /* Init local values. */
+    return_string = tmp_string = NULL;
+
+    do {
+        if(NULL == return_string)
+            tmp_string = umounter_string_replace_once(source, search, 
+                replace);
+        else
+            tmp_string = umounter_string_replace_once(return_string, search, 
+                replace);
+        if(NULL != tmp_string) {
+            if(NULL != return_string)
+                g_free(return_string);
+
+            return_string = tmp_string;
+        }
+
+    } while(NULL != tmp_string);
+
+    g_debug("FUNC(%s) solved command to: %s", __FUNCTION__, return_string);
+
+    return return_string;
 }
 

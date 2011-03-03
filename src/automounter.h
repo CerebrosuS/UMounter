@@ -41,6 +41,7 @@
 #include "config.h"
 #include "volumes.h"
 #include "rulesparser.h"
+#include "string.h"
 
 
 typedef struct _UMounterAutomounter UMounterAutomounter;
