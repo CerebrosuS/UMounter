@@ -164,7 +164,7 @@ umounter_automounter_constructed(GObject *gobject) {
 
     if(NULL == rules_path)
         rules_path = g_build_path("/", g_get_home_dir(), 
-            ".umounter/rules.d");
+            ".umounter/rules.d", NULL);
 
     self->priv->volumes = umounter_rulesparser_parse(self->priv->rulesparser, 
         rules_path);
@@ -292,6 +292,8 @@ static void
 umounter_automounter_volume_added(GVolumeMonitor *volume_monitor, 
     GVolume *volume, gpointer user_data) {
 
+	g_debug("Volume added");
+
     g_return_if_fail(NULL != user_data);
     g_return_if_fail(UMOUNTER_IS_AUTOMOUNTER(user_data));
 
@@ -357,8 +359,8 @@ umounter_automounter_volume_added(GVolumeMonitor *volume_monitor,
     }
 
     /* Try to mount the volume. */
-    umounter_automounter_volume_mount(self, volume, tmp_volume, all_volume, &
-        error);
+    umounter_automounter_volume_mount(self, volume, tmp_volume, all_volume, 
+    	&error);
 
     /* Maybe the mounting failed with an error... */
     if(NULL != error) {
@@ -421,7 +423,6 @@ UMounterVolume *u_volume, UMounterVolume *all_u_volume, GError **error) {
 
     g_return_val_if_fail(NULL != self, FALSE);
     g_return_val_if_fail(NULL != volume, FALSE);
-    g_return_val_if_fail(NULL != all_u_volume, FALSE);
     g_return_val_if_fail(NULL == *error, FALSE);
 
     GMountOperation *mount_operation;

@@ -116,14 +116,15 @@ gint main(gint argc, gchar **argv) {
     /* Get configuration... */
     UMounterConfig *config = umounter_config_new();
 
+    /* If no filename for the configuration was given, we set a default name. */    
     if(NULL == config_file) {
         config_file = g_build_path("/", g_get_home_dir(), 
-        ".umounter/umounter.conf");
+            ".umounter/umounter.conf", NULL);
     }
 
     if(!umounter_config_read(config, config_file, &error)) {
-            g_warning("Can't read configuration: %s", error->message);
-            g_error_free(error);
+        g_warning("Can't read configuration: %s", error->message);
+        g_error_free(error);
     }
 
     /* Create rulesparser... */
